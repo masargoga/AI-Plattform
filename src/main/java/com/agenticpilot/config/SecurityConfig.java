@@ -24,7 +24,8 @@ class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health", "/actuator/health/**", "/fonts/**", "/styles.css", "/app.css").permitAll());
+                .requestMatchers("/actuator/health", "/actuator/health/**", "/fonts/**", "/styles.css", "/app.css",
+                "/v3/api-docs", "/v3/api-docs/**").permitAll());
         http.with(VaadinSecurityConfigurer.vaadin(), vaadin -> vaadin.loginView(LoginView.class));
         return http.build();
     }

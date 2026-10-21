@@ -34,6 +34,11 @@ The chat needs a Claude API key. Without one the app still runs and the guardrai
 
 Uploads: PDF, Word (`.docx`), text and Markdown, 25 MB per file. Only the extracted text is kept, the original file is not stored.
 
+## REST API and website sources
+
+- **API v1:** `GET /api/v1/agents`, `POST /api/v1/agents/{id}/messages` (JSON or server-sent events with `"stream": true`), `POST /api/v1/guardrails/check` and `GET /api/v1/approvals/{id}`. Create a key on the agent page (shown once, stored hashed, revocable) and send it as `Authorization: Bearer ap_...`. A key reaches only its own agent. The OpenAPI description is served at `/v3/api-docs`. Every call is audited and rate limited per key (`AGENTICPILOT_API_RATE_LIMIT`, default 60 per minute; the counters are per replica). Errors always look like `{"code","message","requestId"}`.
+- **Website sources:** an Admin first allows the domain under Data sources (with an empty list nothing is crawled). The crawler stays on one host, respects `robots.txt`, reads at most 50 pages with a 1 second pause, and refuses internal and reserved addresses. `AGENTICPILOT_WEBSITE_MAX_PAGES` and `AGENTICPILOT_WEBSITE_REQUEST_DELAY` tune it. `AGENTICPILOT_WEBSITE_ALLOW_PRIVATE_ADDRESSES` exists for tests only: never set it in a deployment.
+
 ## Build and image
 
 ```sh

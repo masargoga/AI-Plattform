@@ -5,7 +5,9 @@ import com.agenticpilot.audit.AuditService;
 import com.agenticpilot.common.CurrentUser;
 import com.agenticpilot.common.InvalidInputException;
 import com.agenticpilot.common.NotFoundException;
-import java.net.URI;
+import com.agenticpilot.source.connector.FetchException;
+import com.agenticpilot.source.connector.WebsiteConnector;
+import com.agenticpilot.source.connector.WebsiteProperties;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -25,8 +27,13 @@ public class DataSourceService {
     private final CurrentUser currentUser;
 
     private final AuditService audit;
+    private final AllowedDomainService allowedDomains;
+    private final WebsiteProperties props;
 
-    public DataSourceService(DataSourceRepository sources, CurrentUser currentUser, AuditService audit) {
+    public DataSourceService(DataSourceRepository sources, CurrentUser currentUser, AuditService audit, AllowedDomainService allowedDomains,
+                             WebsiteProperties props) {
+        this.allowedDomains = allowedDomains;
+        this.props = props;
         this.sources = sources;
         this.currentUser = currentUser;
         this.audit = audit;
@@ -66,36 +73,17 @@ public class DataSourceService {
             throw new InvalidInputException("error.tooLong", 500);
         }
         if (kind == SourceKind.WEBSITE) {
-            requireHttpUrl(loc);
+            try {
+                WebsiteConnector.parse(loc, props.allowPrivateAddresses());
+            } catch (FetchException e) {
+                throw new InvalidInputException(e.getMessage());
+            }
+            if (!allowedDomains.isAllowed(java.net.URI.create(loc).getHost())) {
+                throw new InvalidInputException("error.domain.notAllowed");
+            }
         }
         DataSource created = sources.save(new DataSource(n, kind, loc, currentUser.require()));
         audit.workspace("Data source \u201c" + n + "\u201d connected", AuditOutcome.ALLOWED, null, Map.of("kind", kind.name()));
         return created;
-    }
-
-    /**
-     * Placeholder until the connectors land (uploads in M3, website in M4): it only records the time of the request.
-     * It does not read any content yet.
-     */
-    public DataSource sync(UUID id) {
-        DataSource source = get(id);
-        currentUser.requireEdit(source.getCreatedBy());
-        source.markSynced(source.getItemCount(), Instant.now());
-        audit.workspace("Sync requested for \u201c" + source.getName() + "\u201d", AuditOutcome.ALLOWED, null, Map.of());
-        return source;
-    }
-
-    static void requireHttpUrl(String value) {
-        try {
-            URI uri = URI.create(value);
-            String scheme = uri.getScheme();
-            boolean ok = ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))
-                    && uri.getHost() != null && !uri.getHost().isBlank();
-            if (!ok) {
-                throw new InvalidInputException("error.urlInvalid");
-            }
-        } catch (IllegalArgumentException e) {
-            throw new InvalidInputException("error.urlInvalid");
-        }
     }
 }

@@ -75,16 +75,23 @@ public class AgentService {
         return agents.findBySources_IdOrderByName(sourceId);
     }
 
-    /** Creates an agent owned by the signed-in user. */
+    /** Creates a managed agent owned by the signed-in user. */
     public Agent create(String name, String job, Collection<UUID> skillIds, Collection<UUID> sourceIds) {
+        return create(name, job, skillIds, sourceIds, AgentKind.MANAGED);
+    }
+
+    /** Creates an agent owned by the signed-in user. An external agent only has its text checked; it has no skills or sources. */
+    public Agent create(String name, String job, Collection<UUID> skillIds, Collection<UUID> sourceIds, AgentKind kind) {
         AppUser me = currentUser.require();
-        Agent agent = new Agent(validName(name), me);
+        Agent agent = new Agent(validName(name), me, kind == null ? AgentKind.MANAGED : kind);
         agent.setJob(validJob(job));
-        skills.findAllById(skillIds).forEach(s -> agent.getSkills().add(s));
-        sources.findAllById(sourceIds).forEach(s -> agent.getSources().add(s));
+        if (agent.getKind() == AgentKind.MANAGED) {
+            skills.findAllById(skillIds).forEach(s -> agent.getSkills().add(s));
+            sources.findAllById(sourceIds).forEach(s -> agent.getSources().add(s));
+        }
         agents.save(agent);
         guardrails.save(AgentGuardrail.defaultsFor(agent, policies.current().getDefaultRetention()));
-        audit.record(agent.getId(), agent.getName(), "Agent created", AuditOutcome.ALLOWED, null, Map.of("owner", me.getUsername()));
+        audit.record(agent.getId(), agent.getName(), "Agent created", AuditOutcome.ALLOWED, null, Map.of("owner", me.getUsername(), "kind", agent.getKind().name()));
         return agent;
     }
 

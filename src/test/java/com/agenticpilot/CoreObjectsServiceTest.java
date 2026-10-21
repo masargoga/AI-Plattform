@@ -13,6 +13,8 @@ import com.agenticpilot.skill.OutputFormat;
 import com.agenticpilot.skill.Skill;
 import com.agenticpilot.skill.SkillService;
 import com.agenticpilot.skill.SkillType;
+import com.agenticpilot.source.AllowedDomainService;
+import com.agenticpilot.source.SourceSyncService;
 import com.agenticpilot.source.DataSource;
 import com.agenticpilot.source.DataSourceService;
 import com.agenticpilot.source.SourceKind;
@@ -34,6 +36,8 @@ class CoreObjectsServiceTest {
     @Autowired AgentService agents;
     @Autowired SkillService skills;
     @Autowired DataSourceService sources;
+    @Autowired AllowedDomainService allowedDomains;
+    @Autowired SourceSyncService syncService;
 
     @AfterEach
     void signOut() {
@@ -128,6 +132,10 @@ class CoreObjectsServiceTest {
 
     @Test
     void onlyUploadAndWebsiteSourcesCanBeCreatedAndWebsitesNeedHttpUrls() {
+        AsUser.admin();
+        if (allowedDomains.all().stream().noneMatch(d -> d.getDomain().equals("example.com"))) {
+            allowedDomains.add("example.com");
+        }
         AsUser.owner();
         assertThatThrownBy(() -> sources.create("Wiki", SourceKind.WIKI, "x")).isInstanceOf(InvalidInputException.class);
         assertThatThrownBy(() -> sources.create("Site", SourceKind.WEBSITE, "ftp://example.com")).isInstanceOf(InvalidInputException.class);
@@ -137,13 +145,19 @@ class CoreObjectsServiceTest {
     }
 
     @Test
-    void sourceSyncIsLimitedToCreatorOrAdmin() {
+    void websiteSyncIsLimitedToCreatorOrAdminAndNeedsAnAllowedDomain() {
         AsUser.admin();
-        DataSource d = sources.create("Sync " + System.nanoTime(), SourceKind.UPLOAD, "Files");
+        if (allowedDomains.all().stream().noneMatch(d -> d.getDomain().equals("example.com"))) {
+            allowedDomains.add("example.com");
+        }
+        DataSource site = sources.create("Site " + System.nanoTime(), SourceKind.WEBSITE, "https://docs.example.com");
+        UUID id = site.getId();
         AsUser.owner();
-        UUID id = d.getId();
-        assertThatThrownBy(() -> sources.sync(id)).isInstanceOf(AccessDeniedException.class);
-        AsUser.admin2();
-        assertThat(sources.sync(id).getLastSynced()).isNotNull();
+        assertThatThrownBy(() -> syncService.start(id, null)).isInstanceOf(AccessDeniedException.class);
+        DataSource upload;
+        AsUser.admin();
+        upload = sources.create("Up " + System.nanoTime(), SourceKind.UPLOAD, "files");
+        UUID uploadId = upload.getId();
+        assertThatThrownBy(() -> syncService.start(uploadId, null)).isInstanceOf(InvalidInputException.class);
     }
 }

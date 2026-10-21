@@ -1,7 +1,9 @@
 package com.agenticpilot.ui;
 
 import com.agenticpilot.agent.Agent;
+import com.agenticpilot.agent.AgentKind;
 import com.agenticpilot.agent.AgentService;
+import com.agenticpilot.api.ApiKeyService;
 import com.agenticpilot.agent.AgentStatus;
 import com.agenticpilot.agent.Autonomy;
 import com.agenticpilot.agent.ModelTier;
@@ -61,6 +63,7 @@ public class AgentView extends Div implements BeforeEnterObserver {
     private final RuleSheets ruleSheets;
     private final AgentChatService chat;
     private final BackgroundExecutor executor;
+    private final ApiKeyService apiKeys;
 
     private AgentTestPanel testPanel;
     private UUID testPanelAgent;
@@ -79,7 +82,8 @@ public class AgentView extends Div implements BeforeEnterObserver {
 
     public AgentView(AgentService agents, SkillService skills, DataSourceService sources, AgentGuardrailService guardrails,
                      CustomRuleService rules, WorkspacePolicyService policies, CurrentUser currentUser, AgentChatService chat,
-                     BackgroundExecutor executor) {
+                     BackgroundExecutor executor, ApiKeyService apiKeys) {
+        this.apiKeys = apiKeys;
         this.chat = chat;
         this.executor = executor;
         this.agents = agents;
@@ -126,6 +130,9 @@ public class AgentView extends Div implements BeforeEnterObserver {
                 ? getTranslation("agent.runs", agent.getRunCount(), Labels.ago(this, agent.getLastRun(), "time.never"))
                 : getTranslation("agent.noRuns");
         sub += " · " + getTranslation("agent.owner", agent.getOwner().getDisplayName());
+        if (agent.getKind() == AgentKind.EXTERNAL) {
+            sub += " · " + getTranslation("agent.kind.EXTERNAL");
+        }
         Div main = Dom.div("ap-ah-main", name, para("ap-sub", sub));
 
         Div actions = Dom.div("ap-ah-actions");
@@ -192,13 +199,25 @@ public class AgentView extends Div implements BeforeEnterObserver {
                 .map(m -> new NativeSelect.Choice(m.name(), Labels.of(this, m))).toList(), agent.getModelTier().name());
         model.setEnabled(editable);
 
+        boolean external = agent.getKind() == AgentKind.EXTERNAL;
+        Div instructionsField = new FormField(getTranslation("agent.instructions"), "agent-instructions", instructions, null);
+        Div autonomyField = new FormField(getTranslation("agent.autonomy"), null, Dom.div("ap-field", autonomy, autonomyHint), null);
+        Div modelField = new FormField(getTranslation("agent.model"), "agent-model", model, null);
+        instructionsField.setVisible(!external);
+        autonomyField.setVisible(!external);
+        modelField.setVisible(!external);
         Div jobPanel = Dom.div("ap-card ap-panel",
                 Dom.div("ap-panel-h", Dom.div(null, new H2(getTranslation("agent.jobPanel")), para(null, getTranslation("agent.jobPanel.sub")))),
                 new FormField(getTranslation("agent.jobLine"), "agent-job", job, null),
-                new FormField(getTranslation("agent.instructions"), "agent-instructions", instructions, null),
-                new FormField(getTranslation("agent.autonomy"), null, Dom.div("ap-field", autonomy, autonomyHint), null),
-                new FormField(getTranslation("agent.model"), "agent-model", model, null));
-        setup.add(jobPanel, skillsPanel(), sourcesPanel());
+                instructionsField, autonomyField, modelField);
+        if (external) {
+            setup.add(jobPanel);
+        } else {
+            setup.add(jobPanel, skillsPanel(), sourcesPanel());
+        }
+        if (editable) {
+            setup.add(new ApiAccessPanel(agentId, agent.getKind(), apiKeys));
+        }
 
         Div config = Dom.div("ap-col ap-config", setup, guardColumn());
         return config;
@@ -300,6 +319,10 @@ public class AgentView extends Div implements BeforeEnterObserver {
     }
 
     private Div testColumn() {
+        if (agent.getKind() == AgentKind.EXTERNAL) {
+            return Dom.div("ap-col ap-test", Dom.div("ap-card ap-panel", new H2(getTranslation("agent.external.title")),
+                    para("ap-hint", getTranslation("agent.external.text"))));
+        }
         if (testPanel == null || !agentId.equals(testPanelAgent)) {
             testPanel = new AgentTestPanel(agentId, agent.getName(), agent.getSkills().size(), agent.getSources().size(), chat, rules, executor);
             testPanelAgent = agentId;

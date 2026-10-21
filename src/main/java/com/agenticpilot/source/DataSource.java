@@ -83,6 +83,16 @@ public class DataSource extends AuditedEntity {
         this.lastError = null;
     }
 
+    public void markSyncing() {
+        this.status = SyncStatus.SYNCING;
+    }
+
+    /** The last good content stays; only the status and the reason change. */
+    public void markError(String reason) {
+        this.status = SyncStatus.ERROR;
+        this.lastError = reason == null ? null : reason.length() > 500 ? reason.substring(0, 500) : reason;
+    }
+
     public void markNeverSynced() {
         this.lastSynced = null;
         this.itemCount = 0;

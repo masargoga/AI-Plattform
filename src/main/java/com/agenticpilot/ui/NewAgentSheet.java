@@ -1,6 +1,7 @@
 package com.agenticpilot.ui;
 
 import com.agenticpilot.agent.Agent;
+import com.agenticpilot.agent.AgentKind;
 import com.agenticpilot.agent.AgentService;
 import com.agenticpilot.skill.Skill;
 import com.agenticpilot.skill.SkillService;
@@ -9,6 +10,7 @@ import com.agenticpilot.source.DataSourceService;
 import com.agenticpilot.ui.components.Dom;
 import com.agenticpilot.ui.components.Feedback;
 import com.agenticpilot.ui.components.FormField;
+import com.agenticpilot.ui.components.Segmented;
 import com.agenticpilot.ui.components.Sheet;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.html.Div;
@@ -29,6 +31,7 @@ class NewAgentSheet extends Sheet {
 
     private int step = 1;
     private AgentTemplate template = AgentTemplate.BLANK;
+    private AgentKind kind = AgentKind.MANAGED;
     private final Input name = FormField.textInput("na-name", "", AgentService.NAME_MAX);
     private final Input job = FormField.textInput("na-job", "", AgentService.JOB_MAX);
     private final Set<UUID> sourceIds = new LinkedHashSet<>();
@@ -48,10 +51,11 @@ class NewAgentSheet extends Sheet {
 
     private void render() {
         Div steps = Dom.div("ap-steps");
-        for (int i = 1; i <= 3; i++) {
+        int last = kind == AgentKind.EXTERNAL ? 1 : 3;
+        for (int i = 1; i <= last; i++) {
             steps.getElement().appendChild(new com.vaadin.flow.dom.Element("i").setAttribute("class", i <= step ? "ap-on" : ""));
         }
-        steps.getElement().setAttribute("aria-label", getTranslation("agent.new.step", step, 3));
+        steps.getElement().setAttribute("aria-label", getTranslation("agent.new.step", step, last));
         Div content = switch (step) {
             case 1 -> stepOne();
             case 2 -> stepSources();
@@ -61,7 +65,7 @@ class NewAgentSheet extends Sheet {
 
         NativeButton cancel = Dom.button("ap-btn ap-ghost", getTranslation(step == 1 ? "action.cancel" : "action.back"),
                 step == 1 ? this::close : () -> { step--; render(); });
-        NativeButton next = step < 3
+        NativeButton next = step < last
                 ? Dom.button("ap-btn ap-primary", getTranslation("action.next"), this::next)
                 : Dom.button("ap-btn ap-primary", getTranslation("agent.new.create"), this::create);
         setFooter(cancel, next);
@@ -78,8 +82,21 @@ class NewAgentSheet extends Sheet {
             b.getElement().setAttribute("aria-pressed", String.valueOf(t == template));
             tpls.add(b);
         }
+        Segmented<AgentKind> kindSeg = new Segmented<>(List.of(new Segmented.Option<>(AgentKind.MANAGED, getTranslation("agent.kind.MANAGED")),
+                new Segmented.Option<>(AgentKind.EXTERNAL, getTranslation("agent.kind.EXTERNAL"))), kind);
+        kindSeg.onChange(k -> {
+            kind = k;
+            String n = name.getValue();
+            String j = job.getValue();
+            render();
+            name.setValue(n);
+            job.setValue(j);
+        });
+        Div templates = new FormField(getTranslation("agent.template"), null, tpls, null);
+        templates.setVisible(kind == AgentKind.MANAGED);
         return Dom.div("ap-sg",
-                new FormField(getTranslation("agent.template"), null, tpls, null),
+                new FormField(getTranslation("agent.kind"), null, Dom.div(null, kindSeg), getTranslation("agent.kind." + kind.name() + ".hint")),
+                templates,
                 new FormField(getTranslation("agent.name"), "na-name", name, null),
                 new FormField(getTranslation("agent.job"), "na-job", job, null));
     }
@@ -171,7 +188,7 @@ class NewAgentSheet extends Sheet {
 
     private void create() {
         Agent[] created = new Agent[1];
-        if (Feedback.run(this, () -> created[0] = agents.create(name.getValue(), job.getValue(), skillIds, sourceIds))) {
+        if (Feedback.run(this, () -> created[0] = agents.create(name.getValue(), job.getValue(), skillIds, sourceIds, kind))) {
             close();
             Feedback.saved(this, "agent.created");
             UI.getCurrent().navigate(AgentView.class, new com.vaadin.flow.router.RouteParameters("agentId", created[0].getId().toString()));

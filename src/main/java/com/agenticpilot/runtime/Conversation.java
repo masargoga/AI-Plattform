@@ -35,10 +35,15 @@ public class Conversation extends AuditedEntity {
     @Column(name = "expires_at")
     private Instant expiresAt;
 
+    /** The API key that started the conversation (API channel only). */
+    @Column(name = "api_key_id", updatable = false)
+    private UUID apiKeyId;
+
     protected Conversation() {
     }
 
-    public Conversation(UUID agentId, ConversationChannel channel, AppUser startedBy, Instant startedAt, Instant expiresAt) {
+    public Conversation(UUID agentId, ConversationChannel channel, AppUser startedBy, Instant startedAt, Instant expiresAt, UUID apiKeyId) {
+        this.apiKeyId = apiKeyId;
         this.agentId = agentId;
         this.channel = channel;
         this.startedBy = startedBy;
@@ -51,4 +56,5 @@ public class Conversation extends AuditedEntity {
     public AppUser getStartedBy() { return startedBy; }
     public Instant getStartedAt() { return startedAt; }
     public Instant getExpiresAt() { return expiresAt; }
+    public UUID getApiKeyId() { return apiKeyId; }
 }

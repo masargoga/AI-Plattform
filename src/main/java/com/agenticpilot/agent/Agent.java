@@ -69,8 +69,13 @@ public class Agent extends AuditedEntity {
     }
 
     public Agent(String name, AppUser owner) {
+        this(name, owner, AgentKind.MANAGED);
+    }
+
+    public Agent(String name, AppUser owner, AgentKind kind) {
         this.name = name;
         this.owner = owner;
+        this.kind = kind;
     }
 
     public String getName() { return name; }

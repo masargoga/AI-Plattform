@@ -42,6 +42,7 @@ class IngestionAndRetrievalTest {
     @Autowired DataSourceService sources;
     @Autowired AgentService agents;
     @Autowired Retriever retriever;
+    @Autowired com.agenticpilot.source.AllowedDomainService allowedDomains;
 
     private final TextExtractor extractor = new TextExtractor(new UploadProperties(1024 * 1024, 50_000, 3));
 
@@ -244,6 +245,9 @@ class IngestionAndRetrievalTest {
     void onlyCreatorOrAdminCanAddFilesAndOnlyToUploadSources() throws Exception {
         AsUser.admin();
         DataSource adminSource = sources.create("AdminSrc " + System.nanoTime(), SourceKind.UPLOAD, "files");
+        if (allowedDomains.all().stream().noneMatch(d -> d.getDomain().equals("example.com"))) {
+            allowedDomains.add("example.com");
+        }
         DataSource site = sources.create("Site " + System.nanoTime(), SourceKind.WEBSITE, "https://example.com");
         AsUser.owner();
         assertThatThrownBy(() -> ingestion.addFile(adminSource.getId(), "a.txt", bytes("x y z"))).isInstanceOf(AccessDeniedException.class);

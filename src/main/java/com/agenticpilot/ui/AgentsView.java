@@ -148,7 +148,9 @@ public class AgentsView extends Div {
         if (sk.size() > 3) {
             chips.add(Dom.span("ap-chip", "+" + (sk.size() - 3)));
         }
-        if (sk.isEmpty()) {
+        if (a.getKind() == com.agenticpilot.agent.AgentKind.EXTERNAL) {
+            chips.add(Dom.span("ap-chip", getTranslation("agent.kind.EXTERNAL")));
+        } else if (sk.isEmpty()) {
             chips.add(Dom.span("ap-hint", getTranslation("agents.noSkills")));
         }
         card.add(chips);

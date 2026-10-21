@@ -82,6 +82,7 @@ class MessageBundleTest {
         for (Control v : Control.values()) check(p, missing, "control." + v);
         for (RecordStatus v : RecordStatus.values()) check(p, missing, "record." + v);
         for (SubjectKind v : SubjectKind.values()) check(p, missing, "request." + v);
+        for (com.agenticpilot.agent.AgentKind v : com.agenticpilot.agent.AgentKind.values()) check(p, missing, "agent.kind." + v, "agent.kind." + v + ".hint");
         assertThat(missing).isEmpty();
     }
 
@@ -89,7 +90,7 @@ class MessageBundleTest {
     void errorKeysThrownByServicesExist() throws IOException {
         Properties p = bundle();
         List<String> missing = new ArrayList<>();
-        Pattern key = Pattern.compile("(?:InvalidInputException|UploadRejectedException)\\(\"([\\w.]+)\"");
+        Pattern key = Pattern.compile("(?:InvalidInputException|UploadRejectedException|FetchException)\\(\"([\\w.]+)\"");
         try (Stream<Path> files = Files.walk(Path.of("src/main/java"))) {
             for (Path f : files.filter(x -> x.toString().endsWith(".java")).toList()) {
                 Matcher m = key.matcher(Files.readString(f));

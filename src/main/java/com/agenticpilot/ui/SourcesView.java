@@ -5,7 +5,11 @@ import com.agenticpilot.agent.AgentService;
 import com.agenticpilot.source.DataSource;
 import com.agenticpilot.source.DataSourceService;
 import com.agenticpilot.source.SourceKind;
+import com.agenticpilot.source.AllowedDomain;
+import com.agenticpilot.source.AllowedDomainService;
 import com.agenticpilot.source.SourceDocument;
+import com.agenticpilot.source.SourceSyncService;
+import com.agenticpilot.common.CurrentUser;
 import com.agenticpilot.source.SyncStatus;
 import com.agenticpilot.source.ingest.IngestionService;
 import com.agenticpilot.source.ingest.TextExtractor;
@@ -42,9 +46,17 @@ public class SourcesView extends Div {
     private final AgentService agents;
     private final IngestionService ingestion;
     private final UploadProperties uploadLimits;
+    private final SourceSyncService syncService;
+    private final AllowedDomainService allowedDomains;
+    private final CurrentUser currentUser;
     private final Div list = Dom.div("ap-list");
+    private final Div domainsCard = Dom.div("ap-card ap-panel");
 
-    public SourcesView(DataSourceService sources, AgentService agents, IngestionService ingestion, UploadProperties uploadLimits) {
+    public SourcesView(DataSourceService sources, AgentService agents, IngestionService ingestion, UploadProperties uploadLimits,
+                       SourceSyncService syncService, AllowedDomainService allowedDomains, CurrentUser currentUser) {
+        this.syncService = syncService;
+        this.allowedDomains = allowedDomains;
+        this.currentUser = currentUser;
         this.sources = sources;
         this.agents = agents;
         this.ingestion = ingestion;
@@ -53,11 +65,12 @@ public class SourcesView extends Div {
         Paragraph sub = new Paragraph(getTranslation("sources.sub"));
         sub.addClassName("ap-sub");
         add(Dom.div("ap-ph", Dom.div(null, new H1(getTranslation("nav.sources")), sub),
-                Dom.button("ap-btn ap-primary", VaadinIcon.PLUS, getTranslation("sources.connect"), this::openConnect)), list);
+                Dom.button("ap-btn ap-primary", VaadinIcon.PLUS, getTranslation("sources.connect"), this::openConnect)), list, domainsCard);
         refresh();
     }
 
     private void refresh() {
+        paintDomains();
         list.removeAll();
         List<DataSource> all = sources.all();
         if (all.isEmpty()) {
@@ -92,8 +105,9 @@ public class SourcesView extends Div {
             return row;
         }
         NativeButton sync = Dom.button("ap-btn ap-sm", VaadinIcon.REFRESH, getTranslation("sources.sync"), () -> {
-            if (Feedback.run(this, () -> sources.sync(s.getId()))) {
-                Feedback.saved(this, "sources.syncRecorded");
+            UI ui = UI.getCurrent();
+            if (Feedback.run(this, () -> syncService.start(s.getId(), done -> ui.access(this::refresh)))) {
+                Feedback.saved(this, "sources.syncStarted");
                 refresh();
             }
         });
@@ -162,6 +176,57 @@ public class SourcesView extends Div {
                         refresh();
                     }
                 }));
+    }
+
+    // ----- allowed domains for website sources -----
+
+    private void paintDomains() {
+        boolean admin = currentUser.isAdmin();
+        domainsCard.removeAll();
+        domainsCard.getStyle().set("margin-top", "20px");
+        domainsCard.add(Dom.div("ap-panel-h", Dom.div(null, new com.vaadin.flow.component.html.H2(getTranslation("domains.title")),
+                para(getTranslation("domains.sub")))));
+        Div rows = Dom.div("ap-rows");
+        List<AllowedDomain> list = allowedDomains.all();
+        if (list.isEmpty()) {
+            rows.add(Dom.div("ap-rowempty", Dom.span(null, getTranslation(admin ? "domains.empty.admin" : "domains.empty"))));
+        }
+        for (AllowedDomain d : list) {
+            Span name = Dom.span(null, d.getDomain());
+            name.getStyle().set("font-weight", "600");
+            Div row = Dom.div("ap-row", Dom.span("ap-ico", Dom.icon(VaadinIcon.GLOBE, 18)), Dom.div("ap-row-main", name,
+                    Dom.span("ap-hint", getTranslation("domains.addedBy", d.getAddedBy().getDisplayName()))));
+            if (admin) {
+                row.add(Dom.iconButton("ap-iconbtn", VaadinIcon.TRASH, getTranslation("action.remove", d.getDomain()), () -> {
+                    if (Feedback.run(this, () -> allowedDomains.remove(d.getId()))) {
+                        Feedback.saved(this, "domains.removed");
+                        paintDomains();
+                    }
+                }));
+            }
+            rows.add(row);
+        }
+        domainsCard.add(rows);
+        if (admin) {
+            Input domain = FormField.textInput("allow-domain", "", 253);
+            domain.setPlaceholder(getTranslation("domains.placeholder"));
+            Div field = Dom.div("ap-field", domain);
+            field.getStyle().set("flex", "1").set("min-width", "0");
+            Div add = Dom.div(null, field, Dom.button("ap-btn", VaadinIcon.PLUS, getTranslation("domains.add"), () -> {
+                if (Feedback.run(this, () -> allowedDomains.add(domain.getValue()))) {
+                    Feedback.saved(this, "domains.added");
+                    paintDomains();
+                }
+            }));
+            add.getStyle().set("display", "flex").set("gap", "8px");
+            domainsCard.add(add);
+        } else {
+            domainsCard.add(Dom.lock(getTranslation("domains.adminOnly")));
+        }
+    }
+
+    private static Paragraph para(String text) {
+        return new Paragraph(text);
     }
 
     // ----- files of an upload source -----

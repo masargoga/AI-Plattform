@@ -32,7 +32,13 @@ public class AuditService {
     /** Records an event for the signed-in user (or "system"). Details must not contain personal values or secrets. */
     @Transactional(propagation = Propagation.REQUIRED)
     public AuditEntry record(UUID agentId, String agentName, String event, AuditOutcome outcome, UUID ruleId, Map<String, ?> details) {
-        return entries.save(new AuditEntry(Instant.now(), agentId, agentName, currentUser.usernameOrSystem(), event, outcome,
+        return recordAs(currentUser.usernameOrSystem(), agentId, agentName, event, outcome, ruleId, details);
+    }
+
+    /** Records an event for an explicit actor, for example "api:ab12cd34" for a call made with an API key. */
+    @Transactional(propagation = Propagation.REQUIRED)
+    public AuditEntry recordAs(String actor, UUID agentId, String agentName, String event, AuditOutcome outcome, UUID ruleId, Map<String, ?> details) {
+        return entries.save(new AuditEntry(Instant.now(), agentId, agentName, actor, event, outcome,
                 ruleId, null, details == null || details.isEmpty() ? null : JSON.writeValueAsString(details)));
     }
 

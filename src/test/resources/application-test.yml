@@ -10,3 +10,6 @@ agenticpilot:
     api-key: ""
   retention:
     enabled: false
+  website:
+    allow-private-addresses: true
+    request-delay: 0s
