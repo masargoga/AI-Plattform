@@ -1,0 +1,8 @@
+.git
+target
+node_modules
+data
+.github
+ui-reference
+docs
+deploy

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agenticpilot-config
+data:
+  SPRING_PROFILES_ACTIVE: h2
+  AGENTICPILOT_DB_URL: jdbc:h2:file:/data/agenticpilot;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH

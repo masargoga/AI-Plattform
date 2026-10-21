@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agenticpilot
+  labels: {app: agenticpilot}
+spec:
+  replicas: 1              # H2 file database: exactly one replica, no rolling overlap
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: agenticpilot}
+  template:
+    metadata:
+      labels: {app: agenticpilot}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: app
+          image: ghcr.io/masargoga/ai-plattform:latest
+          ports:
+            - {name: http, containerPort: 8080}
+          envFrom:
+            - configMapRef: {name: agenticpilot-config}
+            - secretRef: {name: agenticpilot-secrets}
+          resources:
+            requests: {cpu: 250m, memory: 768Mi}
+            limits: {memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          startupProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            periodSeconds: 5
+            failureThreshold: 36
+          livenessProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: {path: /actuator/health/readiness, port: http}
+            periodSeconds: 5
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: agenticpilot-data}
+        - name: tmp
+          emptyDir: {}
