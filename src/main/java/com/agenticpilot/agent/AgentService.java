@@ -1,8 +1,13 @@
 package com.agenticpilot.agent;
 
+import com.agenticpilot.audit.AuditOutcome;
+import com.agenticpilot.audit.AuditService;
 import com.agenticpilot.common.CurrentUser;
 import com.agenticpilot.common.InvalidInputException;
 import com.agenticpilot.common.NotFoundException;
+import com.agenticpilot.guardrail.AgentGuardrail;
+import com.agenticpilot.guardrail.AgentGuardrailRepository;
+import com.agenticpilot.guardrail.WorkspacePolicyService;
 import com.agenticpilot.skill.Skill;
 import com.agenticpilot.skill.SkillRepository;
 import com.agenticpilot.source.DataSource;
@@ -11,6 +16,7 @@ import com.agenticpilot.user.AppUser;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -29,12 +35,19 @@ public class AgentService {
     private final SkillRepository skills;
     private final DataSourceRepository sources;
     private final CurrentUser currentUser;
+    private final AgentGuardrailRepository guardrails;
+    private final WorkspacePolicyService policies;
+    private final AuditService audit;
 
-    public AgentService(AgentRepository agents, SkillRepository skills, DataSourceRepository sources, CurrentUser currentUser) {
+    public AgentService(AgentRepository agents, SkillRepository skills, DataSourceRepository sources, CurrentUser currentUser,
+                        AgentGuardrailRepository guardrails, WorkspacePolicyService policies, AuditService audit) {
         this.agents = agents;
         this.skills = skills;
         this.sources = sources;
         this.currentUser = currentUser;
+        this.guardrails = guardrails;
+        this.policies = policies;
+        this.audit = audit;
     }
 
     @Transactional(readOnly = true)
@@ -69,7 +82,10 @@ public class AgentService {
         agent.setJob(validJob(job));
         skills.findAllById(skillIds).forEach(s -> agent.getSkills().add(s));
         sources.findAllById(sourceIds).forEach(s -> agent.getSources().add(s));
-        return agents.save(agent);
+        agents.save(agent);
+        guardrails.save(AgentGuardrail.defaultsFor(agent, policies.current().getDefaultRetention()));
+        audit.record(agent.getId(), agent.getName(), "Agent created", AuditOutcome.ALLOWED, null, Map.of("owner", me.getUsername()));
+        return agent;
     }
 
     public Agent update(UUID id, String name, String job, String instructions, Autonomy autonomy, ModelTier model) {
@@ -82,36 +98,44 @@ public class AgentService {
         agent.setInstructions(instructions == null ? "" : instructions);
         agent.setAutonomy(autonomy);
         agent.setModelTier(model);
+        audit.record(agent.getId(), agent.getName(), "Agent settings saved", AuditOutcome.ALLOWED, null, Map.of());
         return agent;
     }
 
     public Agent setStatus(UUID id, AgentStatus status) {
         Agent agent = editable(id);
         agent.setStatus(status);
+        audit.record(agent.getId(), agent.getName(), status == AgentStatus.ACTIVE ? "Agent activated" : "Agent paused", AuditOutcome.ALLOWED, null, Map.of());
         return agent;
     }
 
     public Agent addSkill(UUID id, UUID skillId) {
         Agent agent = editable(id);
-        agent.getSkills().add(skills.findById(skillId).orElseThrow(() -> new NotFoundException("Skill")));
+        Skill skill = skills.findById(skillId).orElseThrow(() -> new NotFoundException("Skill"));
+        agent.getSkills().add(skill);
+        audit.record(agent.getId(), agent.getName(), "Skill \u201c" + skill.getName() + "\u201d added", AuditOutcome.ALLOWED, null, Map.of());
         return agent;
     }
 
     public Agent removeSkill(UUID id, UUID skillId) {
         Agent agent = editable(id);
         agent.getSkills().removeIf(s -> s.getId().equals(skillId));
+        audit.record(agent.getId(), agent.getName(), "Skill removed", AuditOutcome.ALLOWED, null, Map.of("skillId", skillId.toString()));
         return agent;
     }
 
     public Agent addSource(UUID id, UUID sourceId) {
         Agent agent = editable(id);
-        agent.getSources().add(sources.findById(sourceId).orElseThrow(() -> new NotFoundException("Data source")));
+        DataSource source = sources.findById(sourceId).orElseThrow(() -> new NotFoundException("Data source"));
+        agent.getSources().add(source);
+        audit.record(agent.getId(), agent.getName(), "Data source \u201c" + source.getName() + "\u201d attached", AuditOutcome.ALLOWED, null, Map.of());
         return agent;
     }
 
     public Agent removeSource(UUID id, UUID sourceId) {
         Agent agent = editable(id);
         agent.getSources().removeIf(s -> s.getId().equals(sourceId));
+        audit.record(agent.getId(), agent.getName(), "Data source detached", AuditOutcome.ALLOWED, null, Map.of("sourceId", sourceId.toString()));
         return agent;
     }
 

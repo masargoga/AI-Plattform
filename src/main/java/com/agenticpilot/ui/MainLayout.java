@@ -10,10 +10,13 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.component.sidenav.SideNavItem;
+import com.vaadin.flow.router.AfterNavigationEvent;
+import com.vaadin.flow.router.AfterNavigationObserver;
 import com.vaadin.flow.router.RouterLayout;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import jakarta.annotation.security.PermitAll;
+import com.agenticpilot.compliance.ComplianceService;
 import com.agenticpilot.user.AppUser;
 import com.agenticpilot.user.AppUserRepository;
 
@@ -21,7 +24,7 @@ import com.agenticpilot.user.AppUserRepository;
  * Left rail on wide screens, top bar plus bottom tab bar below 860 px (see styles in layout.css).
  */
 @PermitAll
-public class MainLayout extends Div implements RouterLayout {
+public class MainLayout extends Div implements RouterLayout, AfterNavigationObserver {
 
     private record Entry(String path, String labelKey, VaadinIcon icon, Class<? extends Component> view) {
     }
@@ -33,8 +36,11 @@ public class MainLayout extends Div implements RouterLayout {
             new Entry("policies", "nav.policies", VaadinIcon.SHIELD, PoliciesView.class));
 
     private final Div content = new Div();
+    private final Span openItems = new Span();
+    private final ComplianceService compliance;
 
-    public MainLayout(AuthenticationContext auth, AppUserRepository users) {
+    public MainLayout(AuthenticationContext auth, AppUserRepository users, ComplianceService compliance) {
+        this.compliance = compliance;
         addClassName("ap-app");
 
         AppUser user = auth.getPrincipalName().flatMap(users::findByUsername).orElse(null);
@@ -62,7 +68,13 @@ public class MainLayout extends Div implements RouterLayout {
         SideNav nav = new SideNav();
         nav.getElement().setAttribute("aria-label", getTranslation("nav.main"));
         for (Entry e : ENTRIES) {
-            nav.addItem(new SideNavItem(getTranslation(e.labelKey()), e.view(), new Icon(e.icon())));
+            SideNavItem item = new SideNavItem(getTranslation(e.labelKey()), e.view(), new Icon(e.icon()));
+            if (e.view() == PoliciesView.class) {
+                openItems.addClassName("ap-num");
+                openItems.getElement().setAttribute("title", getTranslation("nav.openItems"));
+                item.setSuffixComponent(openItems);
+            }
+            nav.addItem(item);
         }
 
         Div tagline = new Div(new Span(getTranslation("app.tagline")));
@@ -109,6 +121,13 @@ public class MainLayout extends Div implements RouterLayout {
             tabs.add(link);
         }
         return tabs;
+    }
+
+    /** Refreshes the count of open items (records, requests and rule changes waiting for approval) next to Policies. */
+    @Override
+    public void afterNavigation(AfterNavigationEvent event) {
+        int open = compliance.openItems();
+        openItems.setText(open == 0 ? "" : String.valueOf(open));
     }
 
     @Override

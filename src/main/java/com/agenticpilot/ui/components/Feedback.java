@@ -14,8 +14,8 @@ public final class Feedback {
     private Feedback() {
     }
 
-    public static void saved(Component from, String messageKey) {
-        Notification n = Notification.show(from.getTranslation(messageKey), 2500, Notification.Position.BOTTOM_CENTER);
+    public static void saved(Component from, String messageKey, Object... args) {
+        Notification n = Notification.show(from.getTranslation(messageKey, args), 2500, Notification.Position.BOTTOM_CENTER);
         n.addThemeVariants(NotificationVariant.SUCCESS);
     }
 

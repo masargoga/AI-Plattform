@@ -72,6 +72,10 @@ public class AppUser {
         return role;
     }
 
+    public boolean isAdmin() {
+        return role == Role.ADMIN;
+    }
+
     public boolean isActive() {
         return active;
     }

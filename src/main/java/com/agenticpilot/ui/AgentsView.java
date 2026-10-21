@@ -3,6 +3,8 @@ package com.agenticpilot.ui;
 import com.agenticpilot.agent.Agent;
 import com.agenticpilot.agent.AgentService;
 import com.agenticpilot.agent.AgentStatus;
+import com.agenticpilot.guardrail.AgentGuardrailService;
+import com.agenticpilot.guardrail.GuardrailScore;
 import com.agenticpilot.skill.Skill;
 import com.agenticpilot.skill.SkillService;
 import com.agenticpilot.source.DataSourceService;
@@ -19,6 +21,7 @@ import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.NativeButton;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Section;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
@@ -37,13 +40,15 @@ public class AgentsView extends Div {
     private final AgentService agents;
     private final SkillService skills;
     private final DataSourceService sources;
+    private final AgentGuardrailService guardrails;
 
     private AgentStatus filter;
     private String query = "";
     private final Div grid = Dom.div("ap-grid");
     private final Div header = new Div();
 
-    public AgentsView(AgentService agents, SkillService skills, DataSourceService sources) {
+    public AgentsView(AgentService agents, SkillService skills, DataSourceService sources, AgentGuardrailService guardrails) {
+        this.guardrails = guardrails;
         this.agents = agents;
         this.skills = skills;
         this.sources = sources;
@@ -151,6 +156,10 @@ public class AgentsView extends Div {
         Div foot = Dom.div("ap-ac-foot",
                 Dom.span(null, Dom.icon(VaadinIcon.MAGIC, 15), Dom.span(null, getTranslation("count.skills", sk.size()))),
                 Dom.span(null, Dom.icon(VaadinIcon.DATABASE, 15), Dom.span(null, getTranslation("count.sources", a.getSources().size()))));
+        GuardrailScore score = guardrails.score(a.getId());
+        Span pill = Dom.span("ap-pill " + Labels.levelClass(score), Dom.icon(VaadinIcon.SHIELD, 13), new Span(score.met() + "/" + GuardrailScore.TOTAL));
+        pill.getElement().setAttribute("title", getTranslation("guard.check"));
+        foot.add(pill);
         Div grow = new Div();
         grow.getStyle().set("flex", "1");
         Div dot = Dom.div(on ? "ap-dot" : "ap-dot ap-paused");

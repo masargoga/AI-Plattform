@@ -5,6 +5,10 @@ import com.agenticpilot.agent.AgentService;
 import com.agenticpilot.agent.AgentStatus;
 import com.agenticpilot.agent.Autonomy;
 import com.agenticpilot.agent.ModelTier;
+import com.agenticpilot.common.CurrentUser;
+import com.agenticpilot.guardrail.AgentGuardrailService;
+import com.agenticpilot.guardrail.CustomRuleService;
+import com.agenticpilot.guardrail.WorkspacePolicyService;
 import com.agenticpilot.skill.Skill;
 import com.agenticpilot.skill.SkillService;
 import com.agenticpilot.source.DataSource;
@@ -49,6 +53,10 @@ public class AgentView extends Div implements BeforeEnterObserver {
     private final AgentService agents;
     private final SkillService skills;
     private final DataSourceService sources;
+    private final AgentGuardrailService guardrails;
+    private final CustomRuleService rules;
+    private final WorkspacePolicyService policies;
+    private final RuleSheets ruleSheets;
 
     private UUID agentId;
     private Agent agent;
@@ -61,11 +69,17 @@ public class AgentView extends Div implements BeforeEnterObserver {
     private Segmented<Autonomy> autonomy;
     private NativeSelect model;
     private Div layout;
+    private Segmented<Tab> mobileTabs;
 
-    public AgentView(AgentService agents, SkillService skills, DataSourceService sources) {
+    public AgentView(AgentService agents, SkillService skills, DataSourceService sources, AgentGuardrailService guardrails,
+                     CustomRuleService rules, WorkspacePolicyService policies, CurrentUser currentUser) {
         this.agents = agents;
         this.skills = skills;
         this.sources = sources;
+        this.guardrails = guardrails;
+        this.rules = rules;
+        this.policies = policies;
+        this.ruleSheets = new RuleSheets(rules, agents, currentUser);
         addClassName("ap-page");
     }
 
@@ -124,11 +138,11 @@ public class AgentView extends Div implements BeforeEnterObserver {
             add(Dom.div("ap-readonly-note", Dom.span(null, getTranslation("agent.readonly", agent.getOwner().getDisplayName()))));
         }
 
-        Segmented<Tab> mobile = tabs(true);
+        mobileTabs = tabs(true);
         Segmented<Tab> desktop = tabs(false);
-        add(Dom.div("ap-mtabs", mobile), Dom.div("ap-dtabs", desktop));
+        add(Dom.div("ap-mtabs", mobileTabs), Dom.div("ap-dtabs", desktop));
 
-        layout = Dom.div("ap-ag-layout", configColumn(), guardColumn(), testColumn());
+        layout = Dom.div("ap-ag-layout", configColumn(), testColumn());
         applyTab();
         add(layout);
     }
@@ -177,7 +191,7 @@ public class AgentView extends Div implements BeforeEnterObserver {
                 new FormField(getTranslation("agent.model"), "agent-model", model, null));
         setup.add(jobPanel, skillsPanel(), sourcesPanel());
 
-        Div config = Dom.div("ap-col ap-config", setup);
+        Div config = Dom.div("ap-col ap-config", setup, guardColumn());
         return config;
     }
 
@@ -267,8 +281,13 @@ public class AgentView extends Div implements BeforeEnterObserver {
     }
 
     private Div guardColumn() {
-        return Dom.div("ap-col ap-guard", Dom.div("ap-card ap-panel", new H2(getTranslation("tab.guardrails")),
-                para("ap-coming", getTranslation("agent.guardrails.later"))));
+        AgentGuardrailsPanel panel = new AgentGuardrailsPanel(agentId, agent.getName(), editable, guardrails, rules, policies, ruleSheets, () -> {
+            tab = Tab.TEST;
+            applyTab();
+            mobileTabs.setValue(Tab.TEST);
+        });
+        panel.addClassName("ap-guard");
+        return panel;
     }
 
     private Div testColumn() {

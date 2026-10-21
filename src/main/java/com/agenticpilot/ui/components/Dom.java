@@ -56,6 +56,21 @@ public final class Dom {
         return b;
     }
 
+    /** A control row: title and description on the left, the control (usually a switch) on the right. */
+    public static Div control(String title, String description, Component control) {
+        Span t = new Span(title);
+        t.getStyle().set("font-weight", "600");
+        Span d = new Span(description);
+        d.addClassName("ap-hint");
+        d.getStyle().set("display", "block");
+        return div("ap-ctl", div(null, t, d), control);
+    }
+
+    /** A line with a shield icon, used for "workspace rule" and "only admins" notes. */
+    public static Div lock(String text) {
+        return div("ap-lock", icon(VaadinIcon.SHIELD, 14), new Span(text));
+    }
+
     public static Icon icon(VaadinIcon icon, int size) {
         Icon i = icon.create();
         i.setSize(size + "px");

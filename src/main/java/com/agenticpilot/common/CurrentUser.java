@@ -26,6 +26,24 @@ public class CurrentUser {
         return users.findByUsername(auth.getName()).orElseThrow(() -> new AccessDeniedException("Unknown user"));
     }
 
+    /** The signed-in username, or "system" for work without a user (startup, jobs). */
+    public String usernameOrSystem() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return "system";
+        }
+        return auth.getName();
+    }
+
+    /** Throws unless the signed-in user is an Admin. */
+    public AppUser requireAdmin() {
+        AppUser me = require();
+        if (me.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only Admins may do this");
+        }
+        return me;
+    }
+
     public boolean isAdmin() {
         return require().getRole() == Role.ADMIN;
     }

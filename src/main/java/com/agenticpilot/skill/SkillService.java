@@ -1,10 +1,13 @@
 package com.agenticpilot.skill;
 
+import com.agenticpilot.audit.AuditOutcome;
+import com.agenticpilot.audit.AuditService;
 import com.agenticpilot.common.CurrentUser;
 import com.agenticpilot.common.InvalidInputException;
 import com.agenticpilot.common.NotFoundException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,9 +29,12 @@ public class SkillService {
     private final SkillRepository skills;
     private final CurrentUser currentUser;
 
-    public SkillService(SkillRepository skills, CurrentUser currentUser) {
+    private final AuditService audit;
+
+    public SkillService(SkillRepository skills, CurrentUser currentUser, AuditService audit) {
         this.skills = skills;
         this.currentUser = currentUser;
+        this.audit = audit;
     }
 
     @Transactional(readOnly = true)
@@ -54,7 +60,9 @@ public class SkillService {
     public Skill create(Content content) {
         Skill skill = new Skill(validName(content.name()), currentUser.require());
         apply(skill, content);
-        return skills.save(skill);
+        skills.save(skill);
+        audit.workspace("Skill \u201c" + skill.getName() + "\u201d created", AuditOutcome.ALLOWED, null, Map.of());
+        return skill;
     }
 
     /** Saving raises the version number shown as v1, v2, ... */
@@ -64,6 +72,7 @@ public class SkillService {
         skill.setName(validName(content.name()));
         apply(skill, content);
         skill.raiseRevision();
+        audit.workspace("Skill \u201c" + skill.getName() + "\u201d saved as v" + skill.getRevision(), AuditOutcome.ALLOWED, null, Map.of());
         return skill;
     }
 

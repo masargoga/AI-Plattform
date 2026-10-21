@@ -1,11 +1,14 @@
 package com.agenticpilot.source;
 
+import com.agenticpilot.audit.AuditOutcome;
+import com.agenticpilot.audit.AuditService;
 import com.agenticpilot.common.CurrentUser;
 import com.agenticpilot.common.InvalidInputException;
 import com.agenticpilot.common.NotFoundException;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -21,9 +24,12 @@ public class DataSourceService {
     private final DataSourceRepository sources;
     private final CurrentUser currentUser;
 
-    public DataSourceService(DataSourceRepository sources, CurrentUser currentUser) {
+    private final AuditService audit;
+
+    public DataSourceService(DataSourceRepository sources, CurrentUser currentUser, AuditService audit) {
         this.sources = sources;
         this.currentUser = currentUser;
+        this.audit = audit;
     }
 
     @Transactional(readOnly = true)
@@ -62,7 +68,9 @@ public class DataSourceService {
         if (kind == SourceKind.WEBSITE) {
             requireHttpUrl(loc);
         }
-        return sources.save(new DataSource(n, kind, loc, currentUser.require()));
+        DataSource created = sources.save(new DataSource(n, kind, loc, currentUser.require()));
+        audit.workspace("Data source \u201c" + n + "\u201d connected", AuditOutcome.ALLOWED, null, Map.of("kind", kind.name()));
+        return created;
     }
 
     /**
@@ -73,6 +81,7 @@ public class DataSourceService {
         DataSource source = get(id);
         currentUser.requireEdit(source.getCreatedBy());
         source.markSynced(source.getItemCount(), Instant.now());
+        audit.workspace("Sync requested for \u201c" + source.getName() + "\u201d", AuditOutcome.ALLOWED, null, Map.of());
         return source;
     }
 

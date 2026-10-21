@@ -1,6 +1,15 @@
 package com.agenticpilot.ui;
 
 import com.agenticpilot.agent.Autonomy;
+import com.agenticpilot.audit.AuditOutcome;
+import com.agenticpilot.guardrail.ApprovalAction;
+import com.agenticpilot.guardrail.Control;
+import com.agenticpilot.guardrail.GuardrailScore;
+import com.agenticpilot.guardrail.PersonalDataMode;
+import com.agenticpilot.guardrail.Region;
+import com.agenticpilot.guardrail.Retention;
+import com.agenticpilot.guardrail.RuleAction;
+import com.agenticpilot.guardrail.SpecialDataMode;
 import com.agenticpilot.agent.ModelTier;
 import com.agenticpilot.skill.OutputFormat;
 import com.agenticpilot.skill.SkillType;
@@ -27,6 +36,41 @@ public final class Labels {
     public static String of(Component c, SourceKind v) { return c.getTranslation("kind." + v.name()); }
     public static String hint(Component c, SourceKind v) { return c.getTranslation("kind." + v.name() + ".hint"); }
     public static String unit(Component c, SourceKind v) { return c.getTranslation("unit." + v.unit()); }
+
+    public static String of(Component c, PersonalDataMode v) { return c.getTranslation("pii." + v.name()); }
+    public static String of(Component c, SpecialDataMode v) { return c.getTranslation("special." + v.name()); }
+    public static String of(Component c, Region v) { return c.getTranslation("region." + v.name()); }
+    public static String of(Component c, Retention v) { return c.getTranslation("retention." + v.name()); }
+    public static String of(Component c, ApprovalAction v) { return c.getTranslation("approval." + v.name()); }
+    public static String of(Component c, RuleAction v) { return c.getTranslation("ruleAction." + v.name()); }
+    public static String of(Component c, AuditOutcome v) { return c.getTranslation("outcome." + v.name()); }
+    public static String gap(Component c, Control v) { return c.getTranslation("control." + v.name()); }
+
+    /** Pill colour class for a score. */
+    public static String levelClass(GuardrailScore score) {
+        return switch (score.level()) {
+            case GREEN -> "ap-ok";
+            case AMBER -> "ap-warn";
+            case RED -> "ap-bad";
+        };
+    }
+
+    public static String pillClass(RuleAction a) {
+        return switch (a) {
+            case BLOCK -> "ap-bad";
+            case APPROVE -> "ap-warn";
+            case MASK, NOTE -> "";
+        };
+    }
+
+    public static String pillClass(AuditOutcome o) {
+        return switch (o) {
+            case ALLOWED -> "ap-ok";
+            case MASKED -> "";
+            case BLOCKED -> "ap-bad";
+            case NEEDS_APPROVAL -> "ap-warn";
+        };
+    }
 
     public static VaadinIcon icon(SourceKind kind) {
         return switch (kind) {

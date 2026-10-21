@@ -4,6 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.agenticpilot.agent.Autonomy;
 import com.agenticpilot.agent.ModelTier;
+import com.agenticpilot.audit.AuditOutcome;
+import com.agenticpilot.compliance.RecordStatus;
+import com.agenticpilot.compliance.SubjectKind;
+import com.agenticpilot.guardrail.ApprovalAction;
+import com.agenticpilot.guardrail.Control;
+import com.agenticpilot.guardrail.PersonalDataMode;
+import com.agenticpilot.guardrail.Region;
+import com.agenticpilot.guardrail.Retention;
+import com.agenticpilot.guardrail.RuleAction;
+import com.agenticpilot.guardrail.SpecialDataMode;
 import com.agenticpilot.skill.OutputFormat;
 import com.agenticpilot.skill.SkillType;
 import com.agenticpilot.skill.Tool;
@@ -62,6 +72,34 @@ class MessageBundleTest {
         for (ModelTier v : ModelTier.values()) check(p, missing, "model." + v);
         for (Role v : Role.values()) check(p, missing, "role." + v);
         for (SourceKind v : SourceKind.values()) check(p, missing, "kind." + v, "kind." + v + ".hint", "kind." + v + ".placeholder", "unit." + v.unit());
+        for (PersonalDataMode v : PersonalDataMode.values()) check(p, missing, "pii." + v);
+        for (SpecialDataMode v : SpecialDataMode.values()) check(p, missing, "special." + v);
+        for (Region v : Region.values()) check(p, missing, "region." + v);
+        for (Retention v : Retention.values()) check(p, missing, "retention." + v);
+        for (ApprovalAction v : ApprovalAction.values()) check(p, missing, "approval." + v);
+        for (RuleAction v : RuleAction.values()) check(p, missing, "ruleAction." + v, "rules.message." + v);
+        for (AuditOutcome v : AuditOutcome.values()) check(p, missing, "outcome." + v);
+        for (Control v : Control.values()) check(p, missing, "control." + v);
+        for (RecordStatus v : RecordStatus.values()) check(p, missing, "record." + v);
+        for (SubjectKind v : SubjectKind.values()) check(p, missing, "request." + v);
+        assertThat(missing).isEmpty();
+    }
+
+    @Test
+    void errorKeysThrownByServicesExist() throws IOException {
+        Properties p = bundle();
+        List<String> missing = new ArrayList<>();
+        Pattern key = Pattern.compile("InvalidInputException\\(\"([\\w.]+)\"");
+        try (Stream<Path> files = Files.walk(Path.of("src/main/java"))) {
+            for (Path f : files.filter(x -> x.toString().endsWith(".java")).toList()) {
+                Matcher m = key.matcher(Files.readString(f));
+                while (m.find()) {
+                    if (!p.containsKey(m.group(1))) {
+                        missing.add(f.getFileName() + ": " + m.group(1));
+                    }
+                }
+            }
+        }
         assertThat(missing).isEmpty();
     }
 
