@@ -3,3 +3,6 @@ spring:
     url: ${AGENTICPILOT_DB_URL:jdbc:h2:file:./data/agenticpilot;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH}
     username: ${AGENTICPILOT_DB_USER:sa}
     password: ${AGENTICPILOT_DB_PASSWORD:}
+
+agenticpilot:
+  demo-data: ${AGENTICPILOT_DEMO_DATA:true}

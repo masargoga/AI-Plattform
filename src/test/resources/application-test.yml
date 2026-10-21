@@ -4,3 +4,4 @@ spring:
 agenticpilot:
   seed:
     password: test-only-password
+  demo-data: false

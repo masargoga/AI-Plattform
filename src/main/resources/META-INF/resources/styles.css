@@ -7,6 +7,8 @@
   --ap-bg:#EEF2F0; --ap-surface:#FFFFFF; --ap-surface-2:#F5F8F6; --ap-ink:#12201D; --ap-ink-2:#4F625D; --ap-ink-3:#7B8C87;
   --ap-line:#DCE3E0; --ap-accent:#0E7C6B; --ap-accent-ink:#FFFFFF; --ap-accent-soft:#DDF1EC; --ap-accent-text:#0A5F52;
   --ap-warn:#8F5A00; --ap-warn-soft:#FBEFD4; --ap-good:#1B7F45; --ap-good-soft:#DDF3E5; --ap-bad:#B3321F; --ap-bad-soft:#FBE3DE;
+  --ap-line-2:#E8EDEB; --ap-switch-off:#C3CDCA;
+  --ap-e1:#0E7C6B; --ap-e1s:#DDF1EC; --ap-e2:#A64B08; --ap-e2s:#FBE9D2; --ap-e3:#3B5BDB; --ap-e3s:#E1E8FD; --ap-e4:#A8326B; --ap-e4s:#F8E0EC;
   --ap-shadow:0 1px 2px rgba(18,32,29,.05),0 8px 24px rgba(18,32,29,.07);
   --ap-font-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
   --ap-font-body:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -16,6 +18,8 @@
   --ap-bg:#0C1311; --ap-surface:#131C1A; --ap-surface-2:#18231F; --ap-ink:#E7EFEC; --ap-ink-2:#A3B5AF; --ap-ink-3:#74867F;
   --ap-line:#263632; --ap-accent:#3FD1B4; --ap-accent-ink:#04201A; --ap-accent-soft:#12342D; --ap-accent-text:#7BE3CD;
   --ap-warn:#E5B04A; --ap-warn-soft:#3A2E12; --ap-good:#5ED08A; --ap-good-soft:#12301F; --ap-bad:#F08070; --ap-bad-soft:#3C1A15;
+  --ap-line-2:#1E2C28; --ap-switch-off:#3A4A46;
+  --ap-e1:#3FD1B4; --ap-e1s:#12342D; --ap-e2:#F0A35B; --ap-e2s:#3A2A16; --ap-e3:#8FA6FF; --ap-e3s:#1B2447; --ap-e4:#F08DBA; --ap-e4s:#3C1B2D;
   --ap-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25); color-scheme:dark}}
 
 /* Map the tokens onto Lumo */

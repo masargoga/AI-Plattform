@@ -7,6 +7,7 @@ import com.vaadin.flow.theme.lumo.Lumo;
 
 @StyleSheet(Lumo.STYLESHEET)
 @StyleSheet("styles.css")
+@StyleSheet("app.css")
 @Viewport("width=device-width, initial-scale=1, viewport-fit=cover")
 public class AppShell implements AppShellConfigurator {
 }

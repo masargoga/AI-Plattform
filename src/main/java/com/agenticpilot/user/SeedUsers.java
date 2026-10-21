@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Creates the three dummy users on first start: one Agent owner and two Admins (for the four-eyes flow). */
 @Component
+@org.springframework.core.annotation.Order(10)
 class SeedUsers implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(SeedUsers.class);

@@ -14,3 +14,4 @@ src/main/bundles/
 *.iml
 .vscode/
 .env
+src/main/frontend/generated/

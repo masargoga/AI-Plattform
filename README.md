@@ -17,7 +17,8 @@ AGENTICPILOT_SEED_PASSWORD='choose-one' mvn spring-boot:run
 ```
 
 Open http://localhost:8080 and sign in as `owner` (Agent owner), `admin` or `admin2` (Admins) with that password.
-The H2 database file lives in `./data`. Health probes: `/actuator/health/liveness` and `/actuator/health/readiness`.
+On first start the demo data from the click-dummy (4 agents, 8 skills, 6 data sources) is loaded; set `AGENTICPILOT_DEMO_DATA=false` to start empty.
+The H2 database file lives in `./data` (delete it to reset). Health probes: `/actuator/health/liveness` and `/actuator/health/readiness`.
 
 ## Build and image
 
