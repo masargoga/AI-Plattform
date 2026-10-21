@@ -4,7 +4,7 @@ Spec-driven web app to manage AI agents, skills, data sources and compliance gua
 Work from the spec; the click-dummy is the visual reference for every screen.
 
 ## Sources of truth
-- Spec (Claude Doc): https://claude.ai/artifact/4zJdBG4p21zibRSPFRfsVh  (to be committed as `docs/SPEC.md`)
+- Spec (Claude Doc): https://claude.ai/artifact/4zJdBG4p21zibRSPFRfsVh  – committed as `docs/SPEC.md`
 - Click-dummy: `ui-reference/foreman.html` (live: https://claude.ai/artifact/NzrhVZvzM8duJUsPwYvohF)
 - Original design conversation: https://claude.ai/code/session_0111xKcwE3PqRQe21t7VpumP
 
