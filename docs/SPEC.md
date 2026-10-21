@@ -1,16 +1,18 @@
-# Foreman Specification
+# AgenticPilot Specification
+
+*Take the lead with your AI.*
 
 Oct 21, 2026
 
 ## Purpose and scope
 
-Foreman is a web app where teams define AI agents, give them data sources and skills, and enforce compliance guardrails on them. This spec describes the target product and splits it into runnable milestones (section 11). The click-dummy (`ui-reference/foreman.html`) is the visual reference for every screen.
+AgenticPilot is a web app where teams define AI agents, give them data sources and skills, and enforce compliance guardrails on them. This spec describes the target product and splits it into runnable milestones (section 11). The click-dummy (`ui-reference/foreman.html`) is the visual reference for every screen.
 
 **Goals**
 
 - Manage agents, skills, data sources and guardrails in one workspace shared by several users.
 - Run agents with a pluggable AI model (Claude first) and expose them through a REST API.
-- Enforce guardrails for agents Foreman runs and for external agents that call a check API.
+- Enforce guardrails for agents AgenticPilot runs and for external agents that call a check API.
 - Prove what happened: versioned rules, second-person approval and an audit log.
 
 **Non-goals for the first releases**
@@ -171,12 +173,12 @@ Actions in detail: **Block** answers with the message and never calls the model.
 
 ## Agent runtime and API
 
-Foreman runs agents with a model behind a provider interface and exposes them through a REST API. One guardrail pipeline checks every request, whether it comes from the test chat, an API client or an external agent.
+AgenticPilot runs agents with a model behind a provider interface and exposes them through a REST API. One guardrail pipeline checks every request, whether it comes from the test chat, an API client or an external agent.
 
 ### Agent kinds
 
-- **Managed:** runs inside Foreman with a model, skills and data sources.
-- **External:** runs elsewhere and is registered only so its text can be checked against the guardrails. Foreman never calls a model for it.
+- **Managed:** runs inside AgenticPilot with a model, skills and data sources.
+- **External:** runs elsewhere and is registered only so its text can be checked against the guardrails. AgenticPilot never calls a model for it.
 
 ### Model provider
 
@@ -208,7 +210,7 @@ The prompt is built in this order: agent instructions, purpose, each assigned sk
 - Each agent has API keys. A key is shown once, stored hashed and sent as a Bearer token. Keys can be revoked.
 - Every call is rate limited per key and written to the audit log.
 - Errors use one JSON format with a code and a message. An OpenAPI description is generated from the code.
-- The first version returns whole answers. Streaming is an open question.
+- `POST /api/v1/agents/{id}/messages` also supports streaming answers (server-sent events) when the client asks for it. Guardrail decisions on the input come first; output rules are applied to the stream before text is released.
 
 ## Data model
 
@@ -227,7 +229,7 @@ The model has about twenty tables. Ids are UUIDs, enums are stored as strings, a
 | chunk | document, ordinal, text | many per document |
 | agent_guardrail | agent, personal data mode, special data mode, region, retention, hidden-instruction protection, human review, max records, purpose | one per agent |
 | agent_approval_action | agent, action (EMAIL, REFUND, DELETE, SHARE, TICKET) | many per agent |
-| workspace_policy | personal data on, special data on, EU only on, default retention | single row |
+| workspace_policy | personal data on, special data on, EU only on, default retention, version, changed by | one live row; each change is kept as a history row (no approval) |
 | custom_rule | name, catches, action, message, scope (ALL, SELECTED), on, live version, sample | selected agents in custom_rule_agent |
 | rule_version | rule, version number, field snapshot (JSON), author, note, status (PENDING, APPROVED, REJECTED, WITHDRAWN), approver, decided at | many per rule |
 | conversation | agent, channel (TEST, API), started by, started at, expires at | many per agent |
@@ -407,14 +409,14 @@ Six milestones, each runnable and deployable on its own. Coding starts with M0 o
 **Open questions**
 
 - [ ] GitHub: owner and name of the private repository, and is GitHub Container Registry fine for images?
-- [ ] Skills and sources: may Agent owners edit those created by others, or only their own?
+- [x] Skills and sources: may Agent owners edit those created by others, or only their own? **Decided: Agent owners edit only their own; Admins edit all.**
 - [ ] Pending actions from Needs approval are an addition to the click-dummy. Can any Admin approve them?
-- [ ] Should workspace policies also be versioned and approved like custom rules?
-- [ ] Should the approval count be configurable, for example two approvers for high-risk rules?
+- [x] Should workspace policies also be versioned and approved like custom rules? **Decided: Yes, versioned (history kept); no approval needed.**
+- [x] Should the approval count be configurable, for example two approvers for high-risk rules? **Decided: No, one approver (a different Admin) stays fixed.**
 - [ ] Which Claude endpoint counts as EU only? Without one, EU-only agents refuse to run. Is that acceptable?
-- [ ] Does the message API need streaming answers in the first version?
-- [ ] Is German needed in the first release or later?
-- [ ] Website connector: should Admins keep an allow list of domains that may be crawled?
+- [x] Does the message API need streaming answers in the first version? **Decided: Yes, streaming answers are required (M4).**
+- [x] Is German needed in the first release or later? **Decided: No German translation; English only, message bundles stay.**
+- [x] Website connector: should Admins keep an allow list of domains that may be crawled? **Decided: Yes, an Admin-managed domain allow list (M4).**
 - [ ] Retention defaults: 90 days for conversations and 12 months for the audit log. Do these match your policy?
 - [ ] Are uploaded files scanned for malware, and by which tool?
 - [ ] Which integrations should replace the stub tools first (email, tickets, spreadsheets)?
