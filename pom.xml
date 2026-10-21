@@ -19,6 +19,7 @@
     <properties>
         <java.version>21</java.version>
         <vaadin.version>25.3.3</vaadin.version>
+        <pdfbox.version>3.0.8</pdfbox.version>
     </properties>
 
     <dependencyManagement>
@@ -57,6 +58,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>

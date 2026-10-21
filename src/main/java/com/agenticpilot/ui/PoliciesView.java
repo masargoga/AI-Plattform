@@ -19,6 +19,9 @@ import com.agenticpilot.guardrail.RuleVersion;
 import com.agenticpilot.guardrail.WorkspacePolicy;
 import com.agenticpilot.guardrail.WorkspacePolicyService;
 import com.agenticpilot.guardrail.WorkspacePolicyVersion;
+import com.agenticpilot.runtime.PendingAction;
+import com.agenticpilot.runtime.PendingActionService;
+import com.agenticpilot.runtime.PendingActionStatus;
 import com.agenticpilot.ui.components.Dom;
 import com.agenticpilot.ui.components.Emblem;
 import com.agenticpilot.ui.components.Feedback;
@@ -84,13 +87,15 @@ public class PoliciesView extends Div implements BeforeEnterObserver {
     private final ComplianceService compliance;
     private final CurrentUser currentUser;
     private final RuleSheets ruleSheets;
+    private final PendingActionService pendingActions;
 
     private Tab tab = Tab.RULES;
     private AuditOutcome auditFilter;
     private final Div content = new Div();
 
     public PoliciesView(WorkspacePolicyService policies, AgentService agents, AgentGuardrailService guardrails, CustomRuleService rules,
-                        AuditService audit, ComplianceService compliance, CurrentUser currentUser) {
+                        AuditService audit, ComplianceService compliance, CurrentUser currentUser, PendingActionService pendingActions) {
+        this.pendingActions = pendingActions;
         this.policies = policies;
         this.agents = agents;
         this.guardrails = guardrails;
@@ -299,6 +304,8 @@ public class PoliciesView extends Div implements BeforeEnterObserver {
             auditFilter = f;
             paint();
         }));
+        Map<java.util.UUID, PendingAction> actions = pendingActions.forAuditEntries(list.stream()
+                .filter(x -> x.getOutcome() == AuditOutcome.NEEDS_APPROVAL).map(AuditEntry::getId).toList());
         Div entries = new Div();
         if (list.isEmpty()) {
             entries.add(Dom.div("ap-rowempty", Dom.span(null, getTranslation("audit.empty"))));
@@ -307,11 +314,44 @@ public class PoliciesView extends Div implements BeforeEnterObserver {
             Span who = Dom.span("ap-hint", e.getAgentName() == null ? getTranslation("audit.workspace") : e.getAgentName());
             Span event = Dom.span(null, e.getEvent());
             event.getStyle().set("font-weight", "600");
-            entries.add(Dom.div("ap-logrow", Dom.span("ap-num", formatTime(e.getOccurredAt().atZone(ZoneId.systemDefault()))),
-                    Dom.div("ap-row-main", event, who), Dom.span("ap-pill " + Labels.pillClass(e.getOutcome()), Labels.of(this, e.getOutcome()))));
+            Div row = Dom.div("ap-logrow", Dom.span("ap-num", formatTime(e.getOccurredAt().atZone(ZoneId.systemDefault()))),
+                    Dom.div("ap-row-main", event, who), Dom.span("ap-pill " + Labels.pillClass(e.getOutcome()), Labels.of(this, e.getOutcome())));
+            PendingAction action = actions.get(e.getId());
+            if (action != null) {
+                Div side = Dom.div("ap-pending-actions");
+                side.getStyle().set("grid-column", "2 / -1").set("display", "flex").set("gap", "8px").set("align-items", "center").set("flex-wrap", "wrap");
+                if (action.getStatus() == PendingActionStatus.PENDING) {
+                    side.add(Dom.span("ap-pill ap-warn", getTranslation("pending.open")));
+                    if (currentUser.isAdmin()) {
+                        side.add(Dom.button("ap-btn ap-sm ap-primary", VaadinIcon.CHECK, getTranslation("pending.approve"), () -> decide(action, true)));
+                        side.add(Dom.button("ap-btn ap-sm", getTranslation("pending.deny"), () -> decide(action, false)));
+                    } else {
+                        side.add(Dom.span("ap-hint", getTranslation("pending.adminOnly")));
+                    }
+                } else {
+                    side.add(Dom.span("ap-pill " + (action.getStatus() == PendingActionStatus.APPROVED ? "ap-ok" : "ap-bad"),
+                            getTranslation("pending." + action.getStatus().name())));
+                    side.add(Dom.span("ap-hint", getTranslation("pending.decidedBy", action.getDecidedBy() == null ? "" : action.getDecidedBy().getDisplayName())));
+                }
+                row.add(side);
+            }
+            entries.add(row);
         }
         card.add(entries);
         return Dom.div("ap-col", card);
+    }
+
+    private void decide(PendingAction action, boolean approve) {
+        if (Feedback.run(this, () -> {
+            if (approve) {
+                pendingActions.approve(action.getId());
+            } else {
+                pendingActions.deny(action.getId());
+            }
+        })) {
+            Feedback.saved(this, approve ? "pending.approved" : "pending.denied");
+        }
+        paint();
     }
 
     private void export() {

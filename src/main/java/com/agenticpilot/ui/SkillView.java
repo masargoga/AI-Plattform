@@ -2,6 +2,7 @@ package com.agenticpilot.ui;
 
 import com.agenticpilot.agent.Agent;
 import com.agenticpilot.agent.AgentService;
+import com.agenticpilot.runtime.SkillRunService;
 import com.agenticpilot.skill.OutputFormat;
 import com.agenticpilot.skill.Skill;
 import com.agenticpilot.skill.SkillService;
@@ -32,6 +33,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import com.agenticpilot.runtime.BackgroundExecutor;
 
 /** Skill editor with the Try-it panel (running a skill needs the model, which arrives in M3). */
 @Route(value = "skills/:skillId", layout = MainLayout.class)
@@ -43,6 +45,8 @@ public class SkillView extends Div implements BeforeEnterObserver {
 
     private final SkillService skills;
     private final AgentService agents;
+    private final SkillRunService skillRun;
+    private final BackgroundExecutor executor;
 
     private UUID skillId;
     private Skill skill;
@@ -58,9 +62,11 @@ public class SkillView extends Div implements BeforeEnterObserver {
     private final Set<Tool> tools = EnumSet.noneOf(Tool.class);
     private Div layout;
 
-    public SkillView(SkillService skills, AgentService agents) {
+    public SkillView(SkillService skills, AgentService agents, SkillRunService skillRun, BackgroundExecutor executor) {
         this.skills = skills;
         this.agents = agents;
+        this.skillRun = skillRun;
+        this.executor = executor;
         addClassName("ap-page");
     }
 
@@ -173,13 +179,47 @@ public class SkillView extends Div implements BeforeEnterObserver {
     }
 
     private Div sideColumn(List<Agent> users) {
-        NativeTextArea sample = new NativeTextArea("skill-try-input", "", 4, 4000);
+        NativeTextArea sample = new NativeTextArea("skill-try-input", "", 4, SkillRunService.MAX_INPUT_CHARS);
+        Div result = Dom.div("ap-result");
+        result.setId("skill-try-result");
+        result.setVisible(false);
+        Paragraph resultHint = para("ap-hint", getTranslation("skill.try.hint"));
+        resultHint.setVisible(false);
         NativeButton run = Dom.button("ap-btn ap-primary", VaadinIcon.PLAY, getTranslation("skill.run"), null);
-        run.setEnabled(false);
+        run.addClickListener(e -> {
+            String text = sample.getValue();
+            if (text == null || text.isBlank()) {
+                Feedback.error(getTranslation("error.chat.empty"));
+                return;
+            }
+            run.setEnabled(false);
+            result.removeAll();
+            result.add(Dom.span("ap-spin"), new Span(" " + getTranslation("skill.running")));
+            result.setVisible(true);
+            resultHint.setVisible(false);
+            com.vaadin.flow.component.UI ui = com.vaadin.flow.component.UI.getCurrent();
+            UUID id = skillId;
+            executor.submit(() -> {
+                String out;
+                try {
+                    out = skillRun.run(id, text).text();
+                } catch (com.agenticpilot.common.InvalidInputException ex) {
+                    out = ui.getTranslation(ex.getMessage(), ex.getArgs());
+                } catch (RuntimeException ex) {
+                    out = ui.getTranslation("chat.error");
+                }
+                String shown = out;
+                ui.access(() -> {
+                    result.removeAll();
+                    result.setText(shown);
+                    resultHint.setVisible(true);
+                    run.setEnabled(true);
+                });
+            });
+        });
         Div tryPanel = Dom.div("ap-card ap-panel",
                 Dom.div("ap-panel-h", Dom.div(null, new H2(getTranslation("skill.try.title")), para(getTranslation("skill.try.sub")))),
-                new FormField(getTranslation("skill.try.input"), "skill-try-input", sample, null), run,
-                para("ap-coming", getTranslation("skill.try.later")));
+                new FormField(getTranslation("skill.try.input"), "skill-try-input", sample, null), run, result, resultHint);
 
         Div rows = Dom.div("ap-rows");
         for (Agent a : users) {

@@ -5,20 +5,29 @@ import com.agenticpilot.agent.AgentService;
 import com.agenticpilot.source.DataSource;
 import com.agenticpilot.source.DataSourceService;
 import com.agenticpilot.source.SourceKind;
+import com.agenticpilot.source.SourceDocument;
 import com.agenticpilot.source.SyncStatus;
+import com.agenticpilot.source.ingest.IngestionService;
+import com.agenticpilot.source.ingest.TextExtractor;
+import com.agenticpilot.source.ingest.UploadProperties;
+import com.agenticpilot.source.ingest.UploadRejectedException;
 import com.agenticpilot.ui.components.Dom;
 import com.agenticpilot.ui.components.Emblem;
 import com.agenticpilot.ui.components.Feedback;
 import com.agenticpilot.ui.components.FormField;
 import com.agenticpilot.ui.components.Sheet;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Input;
 import com.vaadin.flow.component.html.NativeButton;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.server.streams.UploadHandler;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.RolesAllowed;
 import java.time.Instant;
@@ -31,11 +40,15 @@ public class SourcesView extends Div {
 
     private final DataSourceService sources;
     private final AgentService agents;
+    private final IngestionService ingestion;
+    private final UploadProperties uploadLimits;
     private final Div list = Dom.div("ap-list");
 
-    public SourcesView(DataSourceService sources, AgentService agents) {
+    public SourcesView(DataSourceService sources, AgentService agents, IngestionService ingestion, UploadProperties uploadLimits) {
         this.sources = sources;
         this.agents = agents;
+        this.ingestion = ingestion;
+        this.uploadLimits = uploadLimits;
         addClassName("ap-page");
         Paragraph sub = new Paragraph(getTranslation("sources.sub"));
         sub.addClassName("ap-sub");
@@ -72,6 +85,11 @@ public class SourcesView extends Div {
             users.stream().limit(4).forEach(a -> stack.add(new Emblem(a, "sm")));
             stack.getElement().setAttribute("title", String.join(", ", users.stream().map(Agent::getName).toList()));
             side.add(stack);
+        }
+        if (s.getKind() == SourceKind.UPLOAD) {
+            side.add(Dom.button("ap-btn ap-sm", VaadinIcon.UPLOAD, getTranslation("sources.files"), () -> openFiles(s)));
+            row.add(side);
+            return row;
         }
         NativeButton sync = Dom.button("ap-btn ap-sm", VaadinIcon.REFRESH, getTranslation("sources.sync"), () -> {
             if (Feedback.run(this, () -> sources.sync(s.getId()))) {
@@ -144,5 +162,70 @@ public class SourcesView extends Div {
                         refresh();
                     }
                 }));
+    }
+
+    // ----- files of an upload source -----
+
+    private void openFiles(DataSource source) {
+        Sheet sheet = new Sheet(getTranslation("files.title", source.getName()), getTranslation("files.sub"));
+        boolean canEdit = sources.canEdit(source);
+        Div docs = Dom.div("ap-rows");
+        Div body = Dom.div("ap-sg");
+        UI ui = UI.getCurrent();
+        Runnable paint = new Runnable() {
+            @Override
+            public void run() {
+                docs.removeAll();
+                List<SourceDocument> list = ingestion.documents(source.getId());
+                if (list.isEmpty()) {
+                    docs.add(Dom.div("ap-rowempty", Dom.span(null, getTranslation("files.empty"))));
+                }
+                for (SourceDocument d : list) {
+                    Span title = Dom.span(null, d.getTitle());
+                    title.getStyle().set("font-weight", "600");
+                    Div row = Dom.div("ap-row", Dom.span("ap-ico", Dom.icon(VaadinIcon.FILE_TEXT, 18)), Dom.div("ap-row-main", title));
+                    if (canEdit) {
+                        row.add(Dom.iconButton("ap-iconbtn", VaadinIcon.TRASH, getTranslation("action.remove", d.getTitle()), () -> {
+                            if (Feedback.run(sheet, () -> ingestion.removeDocument(d.getId()))) {
+                                Feedback.saved(sheet, "files.removed");
+                                run();
+                                refresh();
+                            }
+                        }));
+                    }
+                    docs.add(row);
+                }
+            }
+        };
+        paint.run();
+
+        if (canEdit) {
+            Upload upload = new Upload(UploadHandler.inMemory((metadata, data) -> {
+                try {
+                    ingestion.addFile(source.getId(), metadata.fileName(), data);
+                    ui.access(() -> {
+                        Feedback.saved(sheet, "files.added");
+                        paint.run();
+                        refresh();
+                    });
+                } catch (UploadRejectedException e) {
+                    ui.access(() -> Feedback.error(metadata.fileName() + ": " + ui.getTranslation(e.getMessage(), e.getArgs())));
+                } catch (RuntimeException e) {
+                    ui.access(() -> Feedback.error(ui.getTranslation("error.denied")));
+                }
+            }));
+            upload.setAcceptedFileTypes(".pdf", ".docx", ".txt", ".md");
+            upload.setMaxFileSize((int) Math.min(uploadLimits.maxBytes(), Integer.MAX_VALUE));
+            upload.setId("source-upload");
+            Paragraph hint = new Paragraph(getTranslation("files.hint", uploadLimits.maxBytes() / (1024 * 1024)));
+            hint.addClassName("ap-hint");
+            body.add(upload, hint);
+        } else {
+            body.add(Dom.lock(getTranslation("files.readOnly")));
+        }
+        body.add(docs);
+        sheet.setBody(body);
+        sheet.setFooter(Dom.button("ap-btn ap-primary", getTranslation("action.close"), sheet::close));
+        sheet.open();
     }
 }

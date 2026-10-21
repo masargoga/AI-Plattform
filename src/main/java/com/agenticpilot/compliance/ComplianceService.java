@@ -5,6 +5,8 @@ import com.agenticpilot.audit.AuditService;
 import com.agenticpilot.common.CurrentUser;
 import com.agenticpilot.common.NotFoundException;
 import com.agenticpilot.guardrail.VersionStatus;
+import com.agenticpilot.runtime.PendingActionRepository;
+import com.agenticpilot.runtime.PendingActionStatus;
 import com.agenticpilot.guardrail.RuleVersionRepository;
 import com.agenticpilot.user.AppUser;
 import java.time.Instant;
@@ -25,11 +27,13 @@ public class ComplianceService {
     private final ComplianceRecordRepository records;
     private final SubjectRequestRepository requests;
     private final RuleVersionRepository ruleVersions;
+    private final PendingActionRepository pendingActions;
     private final AuditService audit;
     private final CurrentUser currentUser;
 
     public ComplianceService(ComplianceRecordRepository records, SubjectRequestRepository requests,
-                             RuleVersionRepository ruleVersions, AuditService audit, CurrentUser currentUser) {
+                             RuleVersionRepository ruleVersions, PendingActionRepository pendingActions, AuditService audit, CurrentUser currentUser) {
+        this.pendingActions = pendingActions;
         this.records = records;
         this.requests = requests;
         this.ruleVersions = ruleVersions;
@@ -68,9 +72,10 @@ public class ComplianceService {
                 Map.of("kind", r.getKind().name()));
     }
 
-    /** Open records, open data subject requests and rule changes waiting for approval: the count next to Policies. */
+    /** Open records, open data subject requests and rule changes and pending actions waiting for approval: the count next to Policies. */
     @Transactional(readOnly = true)
     public int openItems() {
-        return records.countByStatusNot(RecordStatus.DONE) + requests.countByDoneAtIsNull() + ruleVersions.countByStatus(VersionStatus.PENDING);
+        return records.countByStatusNot(RecordStatus.DONE) + requests.countByDoneAtIsNull() + ruleVersions.countByStatus(VersionStatus.PENDING)
+                + pendingActions.countByStatus(PendingActionStatus.PENDING);
     }
 }

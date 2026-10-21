@@ -5,3 +5,8 @@ agenticpilot:
   seed:
     password: test-only-password
   demo-data: false
+  model:
+    eu-allowed: true
+    api-key: ""
+  retention:
+    enabled: false

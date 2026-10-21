@@ -13,6 +13,16 @@ spring:
 agenticpilot:
   seed:
     password: ${AGENTICPILOT_SEED_PASSWORD:}
+  model:
+    provider: ${AGENTICPILOT_MODEL_PROVIDER:claude}
+    api-key: ${AGENTICPILOT_MODEL_API_KEY:}
+    base-url: ${AGENTICPILOT_MODEL_BASE_URL:https://api.anthropic.com}
+    eu-allowed: ${AGENTICPILOT_MODEL_EU_ALLOWED:false}
+    timeout: ${AGENTICPILOT_MODEL_TIMEOUT:30s}
+    names:
+      fast: ${AGENTICPILOT_MODEL_FAST:claude-haiku-5-5}
+      balanced: ${AGENTICPILOT_MODEL_BALANCED:claude-sonnet-5-5}
+      deep: ${AGENTICPILOT_MODEL_DEEP:claude-opus-5-5}
 
 management:
   endpoints:

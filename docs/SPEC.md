@@ -410,10 +410,10 @@ Six milestones, each runnable and deployable on its own. Coding starts with M0 o
 
 - [ ] GitHub: owner and name of the private repository, and is GitHub Container Registry fine for images?
 - [x] Skills and sources: may Agent owners edit those created by others, or only their own? **Decided: Agent owners edit only their own; Admins edit all.**
-- [ ] Pending actions from Needs approval are an addition to the click-dummy. Can any Admin approve them?
+- [x] Pending actions from Needs approval are an addition to the click-dummy. Can any Admin approve them? **Decided: Yes, any Admin (M3).**
 - [x] Should workspace policies also be versioned and approved like custom rules? **Decided: Yes, versioned (history kept); no approval needed.**
 - [x] Should the approval count be configurable, for example two approvers for high-risk rules? **Decided: No, one approver (a different Admin) stays fixed.**
-- [ ] Which Claude endpoint counts as EU only? Without one, EU-only agents refuse to run. Is that acceptable?
+- [x] Which Claude endpoint counts as EU only? Without one, EU-only agents refuse to run. Is that acceptable? **Decided: Yes, fail closed. The operator sets `AGENTICPILOT_MODEL_EU_ALLOWED=true` for an EU-approved endpoint (M3).**
 - [x] Does the message API need streaming answers in the first version? **Decided: Yes, streaming answers are required (M4).**
 - [x] Is German needed in the first release or later? **Decided: No German translation; English only, message bundles stay.**
 - [x] Website connector: should Admins keep an allow list of domains that may be crawled? **Decided: Yes, an Admin-managed domain allow list (M4).**

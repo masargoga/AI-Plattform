@@ -89,7 +89,7 @@ class MessageBundleTest {
     void errorKeysThrownByServicesExist() throws IOException {
         Properties p = bundle();
         List<String> missing = new ArrayList<>();
-        Pattern key = Pattern.compile("InvalidInputException\\(\"([\\w.]+)\"");
+        Pattern key = Pattern.compile("(?:InvalidInputException|UploadRejectedException)\\(\"([\\w.]+)\"");
         try (Stream<Path> files = Files.walk(Path.of("src/main/java"))) {
             for (Path f : files.filter(x -> x.toString().endsWith(".java")).toList()) {
                 Matcher m = key.matcher(Files.readString(f));

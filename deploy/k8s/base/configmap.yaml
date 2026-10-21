@@ -5,3 +5,5 @@ metadata:
 data:
   SPRING_PROFILES_ACTIVE: h2
   AGENTICPILOT_DB_URL: jdbc:h2:file:/data/agenticpilot;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+  # Set to "true" only if the model endpoint is approved for EU-only processing; otherwise EU-only agents refuse to run
+  AGENTICPILOT_MODEL_EU_ALLOWED: "false"

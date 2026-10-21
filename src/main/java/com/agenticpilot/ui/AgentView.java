@@ -9,6 +9,7 @@ import com.agenticpilot.common.CurrentUser;
 import com.agenticpilot.guardrail.AgentGuardrailService;
 import com.agenticpilot.guardrail.CustomRuleService;
 import com.agenticpilot.guardrail.WorkspacePolicyService;
+import com.agenticpilot.runtime.AgentChatService;
 import com.agenticpilot.skill.Skill;
 import com.agenticpilot.skill.SkillService;
 import com.agenticpilot.source.DataSource;
@@ -40,6 +41,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import com.agenticpilot.runtime.BackgroundExecutor;
 
 /** Agent page: Configure, Guardrails and Test. The guardrails and test panels arrive in M2 and M3. */
 @Route(value = "agents/:agentId", layout = MainLayout.class)
@@ -57,7 +59,11 @@ public class AgentView extends Div implements BeforeEnterObserver {
     private final CustomRuleService rules;
     private final WorkspacePolicyService policies;
     private final RuleSheets ruleSheets;
+    private final AgentChatService chat;
+    private final BackgroundExecutor executor;
 
+    private AgentTestPanel testPanel;
+    private UUID testPanelAgent;
     private UUID agentId;
     private Agent agent;
     private boolean editable;
@@ -72,7 +78,10 @@ public class AgentView extends Div implements BeforeEnterObserver {
     private Segmented<Tab> mobileTabs;
 
     public AgentView(AgentService agents, SkillService skills, DataSourceService sources, AgentGuardrailService guardrails,
-                     CustomRuleService rules, WorkspacePolicyService policies, CurrentUser currentUser) {
+                     CustomRuleService rules, WorkspacePolicyService policies, CurrentUser currentUser, AgentChatService chat,
+                     BackgroundExecutor executor) {
+        this.chat = chat;
+        this.executor = executor;
         this.agents = agents;
         this.skills = skills;
         this.sources = sources;
@@ -291,8 +300,11 @@ public class AgentView extends Div implements BeforeEnterObserver {
     }
 
     private Div testColumn() {
-        return Dom.div("ap-col ap-test", Dom.div("ap-card ap-panel", new H2(getTranslation("agent.test.title", agent.getName())),
-                para("ap-coming", getTranslation("agent.test.later"))));
+        if (testPanel == null || !agentId.equals(testPanelAgent)) {
+            testPanel = new AgentTestPanel(agentId, agent.getName(), agent.getSkills().size(), agent.getSources().size(), chat, rules, executor);
+            testPanelAgent = agentId;
+        }
+        return Dom.div("ap-col ap-test", testPanel);
     }
 
     private void save() {
