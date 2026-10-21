@@ -1,0 +1,1039 @@
+<title>Foreman</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=DM+Sans:opsz,wght@9..40,400..700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: left rail + workspace on desktop; top bar + bottom tabs on phones. Agent and skill pages pair a setup column with a live test panel. */
+:root{
+  --bg:#EEF2F0; --surface:#FFFFFF; --surface-2:#F5F8F6; --ink:#12201D; --ink-2:#4F625D; --ink-3:#7B8C87;
+  --line:#DCE3E0; --line-2:#E8EDEB; --switch-off:#C3CDCA;
+  --accent:#0E7C6B; --accent-ink:#FFFFFF; --accent-soft:#DDF1EC; --accent-text:#0A5F52;
+  --warn:#8F5A00; --warn-soft:#FBEFD4; --good:#1B7F45; --good-soft:#DDF3E5; --bad:#B3321F; --bad-soft:#FBE3DE;
+  --e1:#0E7C6B; --e1s:#DDF1EC; --e2:#A64B08; --e2s:#FBE9D2; --e3:#3B5BDB; --e3s:#E1E8FD; --e4:#A8326B; --e4s:#F8E0EC;
+  --shadow:0 1px 2px rgba(18,32,29,.05),0 8px 24px rgba(18,32,29,.07);
+  --font-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --font-body:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0C1311; --surface:#131C1A; --surface-2:#18231F; --ink:#E7EFEC; --ink-2:#A3B5AF; --ink-3:#74867F;
+  --line:#263632; --line-2:#1E2C28; --switch-off:#3A4A46;
+  --accent:#3FD1B4; --accent-ink:#04201A; --accent-soft:#12342D; --accent-text:#7BE3CD;
+  --warn:#E5B04A; --warn-soft:#3A2E12; --good:#5ED08A; --good-soft:#12301F; --bad:#F08070; --bad-soft:#3C1A15;
+  --e1:#3FD1B4; --e1s:#12342D; --e2:#F0A35B; --e2s:#3A2A16; --e3:#8FA6FF; --e3s:#1B2447; --e4:#F08DBA; --e4s:#3C1B2D;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0C1311; --surface:#131C1A; --surface-2:#18231F; --ink:#E7EFEC; --ink-2:#A3B5AF; --ink-3:#74867F;
+  --line:#263632; --line-2:#1E2C28; --switch-off:#3A4A46;
+  --accent:#3FD1B4; --accent-ink:#04201A; --accent-soft:#12342D; --accent-text:#7BE3CD;
+  --warn:#E5B04A; --warn-soft:#3A2E12; --good:#5ED08A; --good-soft:#12301F; --bad:#F08070; --bad-soft:#3C1A15;
+  --e1:#3FD1B4; --e1s:#12342D; --e2:#F0A35B; --e2s:#3A2A16; --e3:#8FA6FF; --e3s:#1B2447; --e4:#F08DBA; --e4s:#3C1B2D;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;
+  padding-block:20px 104px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button{font:inherit;color:inherit}
+h1,h2,h3,p{margin:0}
+h1{font:650 clamp(28px,4vw,38px)/1.1 var(--font-display);letter-spacing:-.02em;text-wrap:balance}
+h2{font:600 18px/1.25 var(--font-display);letter-spacing:-.01em}
+h3{font:600 17px/1.25 var(--font-display)}
+.sub{color:var(--ink-2);max-width:60ch;margin-top:6px}
+.small{font-size:13px}.muted{color:var(--ink-3)}.grow{flex:1}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+svg{flex:none}
+
+.app{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:240px minmax(0,1fr);gap:40px;align-items:start}
+.rail{position:sticky;top:24px;display:flex;flex-direction:column;gap:28px}
+.brand{display:flex;align-items:center;gap:10px;font:700 20px var(--font-display);letter-spacing:-.02em}
+.logo-bg{fill:var(--accent)}.logo-fg{stroke:var(--accent-ink);fill:none}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav-item{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border:0;background:transparent;border-radius:10px;color:var(--ink-2);font-weight:600;cursor:pointer;text-align:left}
+.nav-item:hover{background:var(--surface)}
+.nav-item.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.nav-item.on svg{color:var(--accent)}
+.nav-item em{margin-left:auto;font:500 12px var(--font-mono);color:var(--ink-3);font-style:normal}
+.rail-note{border:1px dashed var(--line);border-radius:12px;padding:14px;font-size:13px;color:var(--ink-2)}
+.rail-note strong{display:block;color:var(--ink);margin-bottom:2px}
+.mtop{display:none;align-items:center;justify-content:space-between;margin-bottom:20px}
+.pill{display:inline-flex;align-items:center;gap:6px;font:500 12px var(--font-mono);padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--ink-2);background:var(--surface)}
+.pill.ok{color:var(--good);background:var(--good-soft);border-color:transparent}
+.pill.warn{color:var(--warn);background:var(--warn-soft);border-color:transparent}
+.tabbar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);
+  padding:6px max(16px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));gap:4px}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;border:0;background:transparent;color:var(--ink-3);font-size:12px;font-weight:600;cursor:pointer;border-radius:10px}
+.tab.on{color:var(--accent-text)}
+.tab .tb-ic{display:grid;place-items:center;width:48px;height:28px;border-radius:99px}
+.tab.on .tb-ic{background:var(--accent-soft)}
+
+.ph{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px 24px;margin-bottom:24px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:14px;cursor:pointer;transition:background .15s,border-color .15s}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.sm{min-height:34px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--ink-2)}
+.btn.ghost:hover{background:var(--surface-2)}
+.iconbtn{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:10px;border:0;background:transparent;color:var(--ink-3);cursor:pointer}
+.iconbtn:hover{background:var(--surface-2);color:var(--ink)}
+.back{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--ink-2);font-weight:600;min-height:40px;padding:0 8px 0 0;cursor:pointer}
+.back:hover{color:var(--ink)}
+.linkish{border:0;background:transparent;padding:0;font-weight:600;text-align:left;cursor:pointer;color:var(--ink)}
+.linkish:hover{color:var(--accent-text);text-decoration:underline}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:20px}
+.search{position:relative;flex:1 1 200px;max-width:340px}
+.search svg{position:absolute;left:12px;top:12px;color:var(--ink-3)}
+.search input{padding-left:38px!important}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label,.lbl{font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.field input,.field textarea,.field select,.search input{width:100%;min-height:42px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:16px}
+.field textarea{resize:vertical;line-height:1.5}
+.field textarea.mono{font:400 14px/1.6 var(--font-mono)}
+.field input:focus,.field textarea:focus,.field select:focus,.search input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.hint{font-size:13px;color:var(--ink-3)}
+.err{font-size:13px;color:var(--bad)}
+.seg{display:inline-flex;flex-wrap:wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+.seg button{min-height:36px;padding:0 14px;border:0;border-radius:8px;background:transparent;color:var(--ink-2);font-weight:600;font-size:14px;cursor:pointer}
+.seg button.on{background:var(--accent-soft);color:var(--accent-text)}
+.mtabs{display:none;margin-bottom:16px}.mtabs .seg{display:flex}.mtabs .seg button{flex:1}
+.tchips{display:flex;flex-wrap:wrap;gap:8px}
+.tchip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:14px;font-weight:500;color:var(--ink-2);cursor:pointer}
+.tchip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-text)}
+.switch{position:relative;width:44px;height:26px;border-radius:99px;border:0;background:var(--switch-off);cursor:pointer;padding:0;flex:none;transition:background .15s}
+.switch::before{content:"";position:absolute;inset:-9px -4px}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.switch[aria-checked="true"]{background:var(--accent)}
+.switch[aria-checked="true"]::after{transform:translateX(18px)}
+
+.how{border:1px solid var(--line);border-radius:14px;background:var(--surface);margin-bottom:24px}
+.how-h{display:flex;justify-content:space-between;align-items:center;padding:10px 12px 0 18px}
+.how ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:0;padding:0;list-style:none}
+.how li{padding:10px 18px 16px;display:flex;flex-direction:column;gap:2px}
+.how li+li{border-left:1px solid var(--line-2)}
+.how b{font:500 12px var(--font-mono);color:var(--accent-text)}
+.how span{font-size:14px;color:var(--ink-2)}
+.how strong{font-weight:600}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.card[data-action]{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.card[data-action]:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.acard,.scard{padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.ac-top{display:flex;gap:12px;align-items:flex-start}
+.ac-id{flex:1;min-width:0}
+.ac-id p{color:var(--ink-2);font-size:14px;margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;padding:3px 9px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line-2);font-size:12.5px;color:var(--ink-2)}
+.ac-foot{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin-top:auto;padding-top:12px;border-top:1px solid var(--line-2)}
+.ac-foot span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--good)}.dot.paused{background:var(--ink-3)}
+.newtile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:190px;border:1.5px dashed var(--line);border-radius:14px;background:transparent;color:var(--ink-2);font-weight:600;cursor:pointer}
+.newtile:hover{border-color:var(--accent);color:var(--accent-text)}
+.emb{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;font:700 15px var(--font-display);flex:none}
+.emb.lg{width:56px;height:56px;font-size:19px;border-radius:14px}
+.emb.sm{width:24px;height:24px;font-size:10px;border-radius:7px}
+.e1{background:var(--e1s);color:var(--e1)}.e2{background:var(--e2s);color:var(--e2)}.e3{background:var(--e3s);color:var(--e3)}.e4{background:var(--e4s);color:var(--e4)}
+.emb.sk{background:var(--accent-soft);color:var(--accent-text)}
+.stack{display:inline-flex}.stack .emb{margin-left:-6px;border:2px solid var(--surface)}.stack .emb:first-child{margin-left:0}
+.badge{font:500 11px var(--font-mono);letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:5px;white-space:nowrap}
+.t-Instruction{background:var(--accent-soft);color:var(--accent-text)}.t-Workflow{background:var(--warn-soft);color:var(--warn)}.t-Tool{background:var(--e3s);color:var(--e3)}
+.scard p{color:var(--ink-2);font-size:14px}
+.sc-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.empty{grid-column:1/-1;text-align:center;padding:40px 16px;color:var(--ink-2)}
+
+.ah{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin:8px 0 20px}
+.ah-main{flex:1 1 260px;min-width:0}
+.ah-actions{display:flex;gap:14px;align-items:center}
+.status-toggle{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px}
+.title-input{width:100%;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--ink);font:650 clamp(24px,3.4vw,30px)/1.2 var(--font-display);letter-spacing:-.02em;padding:2px 0}
+.title-input:hover{border-bottom-color:var(--line)}
+.title-input:focus{outline:0;border-bottom-color:var(--accent)}
+.ag-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,400px);gap:24px;align-items:start}
+.col{display:flex;flex-direction:column;gap:20px;min-width:0}
+.col.test{position:sticky;top:24px}
+.panel{padding:20px;display:flex;flex-direction:column;gap:16px}
+.panel-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.panel-h p{color:var(--ink-2);font-size:14px;margin-top:2px}
+.rows{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:12px;padding:10px 10px 10px 12px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface-2)}
+.row-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.ico{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:var(--surface);border:1px solid var(--line-2);color:var(--ink-2);flex:none}
+.rowempty{padding:16px;border:1px dashed var(--line);border-radius:10px;color:var(--ink-2);font-size:14px}
+
+.test-card{display:flex;flex-direction:column;overflow:hidden}
+.tc-h{padding:16px 18px;border-bottom:1px solid var(--line-2);display:flex;justify-content:space-between;align-items:center;gap:12px}
+.msgs{padding:16px 18px;display:flex;flex-direction:column;gap:12px;min-height:240px;max-height:min(50vh,440px);overflow-y:auto}
+.msg{max-width:90%;padding:10px 13px;border-radius:12px;font-size:14.5px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.bot{background:var(--surface-2);border:1px solid var(--line-2);border-top-left-radius:4px;align-self:flex-start}
+.msg.user{background:var(--accent);color:var(--accent-ink);align-self:flex-end;border-top-right-radius:4px}
+.trace{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.trace span{display:inline-flex;align-items:center;gap:5px;font:500 11.5px var(--font-mono);color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+.typing{display:flex;gap:4px;padding:14px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--ink-3);animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+.prompts{display:flex;flex-wrap:wrap;gap:8px;padding:0 18px 12px}
+.pchip{min-height:34px;padding:0 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-size:13px;color:var(--ink-2);cursor:pointer}
+.pchip:hover{border-color:var(--accent);color:var(--accent-text)}
+.composer{display:flex;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--line-2)}
+.composer input{flex:1;min-width:0;min-height:42px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:16px}
+.composer .btn{width:46px;padding:0}
+.result{white-space:pre-wrap;font-size:14.5px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:10px;padding:14px;overflow-wrap:anywhere}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:spin .7s linear infinite;display:inline-block}
+
+.list{display:flex;flex-direction:column;gap:12px}
+.srow{padding:16px 18px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px 16px;align-items:center}
+.srow-side{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end}
+.mono{font-family:var(--font-mono)}
+.num{font:500 13px var(--font-mono);color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+.scrim{position:fixed;inset:0;background:rgba(8,16,14,.55);z-index:40;animation:fade .15s}
+.sheet{position:fixed;z-index:41;left:0;right:0;bottom:0;max-height:90vh;max-height:90dvh;background:var(--surface);border-radius:20px 20px 0 0;display:flex;flex-direction:column;box-shadow:0 -10px 40px rgba(0,0,0,.25);animation:rise .22s ease-out}
+.sheet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px max(20px,env(safe-area-inset-right,0px)) 8px max(20px,env(safe-area-inset-left,0px))}
+.sheet-h p{margin-top:2px}
+.sheet-body{overflow-y:auto;padding:8px max(20px,env(safe-area-inset-right,0px)) 16px max(20px,env(safe-area-inset-left,0px))}
+.sheet-f{display:flex;justify-content:flex-end;gap:10px;padding:12px max(20px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));border-top:1px solid var(--line-2)}
+.steps{display:flex;gap:6px;margin:4px 0 16px}.steps i{flex:1;height:4px;border-radius:4px;background:var(--line)}.steps i.on{background:var(--accent)}
+.sg{display:flex;flex-direction:column;gap:18px}
+.tpls{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:8px}
+.tpl{display:flex;flex-direction:column;gap:2px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer}
+.tpl span{font-size:12.5px;color:var(--ink-3)}
+.tpl.on{border-color:var(--accent);background:var(--accent-soft)}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;align-items:center;gap:12px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer;width:100%}
+.opt.on{border-color:var(--accent);background:var(--accent-soft)}
+.opt-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.tick{display:grid;place-items:center;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line);color:var(--accent-ink);flex:none}
+.opt.on .tick{background:var(--accent);border-color:var(--accent)}
+.kinds{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.kind{display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer;min-height:112px}
+.kind:hover{border-color:var(--accent)}
+.kind span{font-size:12.5px;color:var(--ink-3)}
+.toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,12px);z-index:60;max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:10px;font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;display:flex;gap:8px;align-items:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+.dtabs{margin-bottom:16px}
+.mob-only{display:none}
+.ctls{display:flex;flex-direction:column}
+.ctl{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--line-2)}
+.ctls .ctl:first-child{border-top:0;padding-top:0}
+.ctl p{margin-top:2px}
+.switch:disabled{opacity:.5;cursor:not-allowed}
+.meter{display:flex;gap:4px}
+.meter i{flex:1;height:6px;border-radius:3px;background:var(--line)}
+.meter.ok i.on{background:var(--good)}.meter.warn i.on{background:var(--warn)}.meter.bad i.on{background:var(--bad)}
+.pill.bad{color:var(--bad);background:var(--bad-soft);border-color:transparent}
+.lock{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-3);margin-top:2px}
+.pchip.g{border-style:dashed;display:inline-flex;align-items:center;gap:6px}
+.row.cr{flex-wrap:wrap}.row.cr .row-main{flex:1 1 150px}
+.who{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:6px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer;text-align:left}
+.who.c{width:auto}.who:hover{border-color:var(--ink-3)}
+.who-t{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25}.who-t span{font-size:12px;color:var(--ink-3)}
+.diff{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface-2);overflow-wrap:anywhere}
+.diff s{color:var(--ink-3)}
+.quote{padding:10px 12px;border-left:3px solid var(--accent);background:var(--surface-2);border-radius:0 8px 8px 0;font-size:14px}
+.hrow{padding:10px 0;border-top:1px solid var(--line-2)}.hrow p{margin-top:2px}
+.tchip:disabled{opacity:.45;cursor:not-allowed}
+.logrow{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line-2)}
+.ag-layout[data-tab="guard"] .setup{display:none}
+.ag-layout:not([data-tab="guard"]) .guard{display:none}
+
+@keyframes fade{from{opacity:0}}
+@keyframes rise{from{transform:translateY(40px);opacity:0}}
+@keyframes pop{from{opacity:0;transform:translate(-50%,-48%)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes blink{50%{opacity:.25}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (min-width:700px){
+  .sheet{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-50%);width:min(580px,calc(100% - 32px));border-radius:18px;max-height:86vh;max-height:86dvh;animation:pop .18s}
+}
+@media (max-width:1179px){
+  .ag-layout{grid-template-columns:minmax(0,1fr)}
+  .col.test{position:static}
+  .mtabs{display:block}.dtabs{display:none}.mob-only{display:inline-flex}
+  .ag-layout[data-tab="test"] .col.config{display:none}
+  .ag-layout:not([data-tab="test"]) .col.test{display:none}
+}
+@media (max-width:859px){
+  .app{grid-template-columns:minmax(0,1fr);gap:0}
+  .rail{display:none}.mtop{display:flex}.tabbar{display:flex}
+  .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  .how ol{grid-template-columns:minmax(0,1fr)}.how li+li{border-left:0;border-top:1px solid var(--line-2)}
+  .srow{grid-template-columns:auto minmax(0,1fr)}.srow-side{grid-column:1/-1;justify-content:space-between}
+  .ph .btn{width:100%}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<div class="mtop" id="mtop"></div>
+<div class="app">
+  <aside class="rail" id="rail"></aside>
+  <main id="main"></main>
+</div>
+<nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+<div id="sheetHost"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+'use strict';
+const $=(s)=>document.querySelector(s);
+const esc=(s)=>String(s==null?'':s).replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const P={
+ agents:'<rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 8V5.5"/><circle cx="12" cy="4.5" r="1"/><path d="M9 13v1.5M15 13v1.5"/>',
+ skills:'<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>',
+ sources:'<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ search:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+ back:'<path d="m15 5-7 7 7 7"/>',
+ close:'<path d="M6 6l12 12M18 6 6 18"/>',
+ check:'<path d="m5 12.5 4.5 4.5L19 7"/>',
+ send:'<path d="M4 12 20 4l-5.5 16-3-6.5z"/>',
+ play:'<path d="M7 5v14l12-7z"/>',
+ web:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+ folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+ page:'<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/>',
+ api:'<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 6l-3 12"/>',
+ refresh:'<path d="M20 11a8 8 0 0 0-14-4L4 9M4 5v4h4M4 13a8 8 0 0 0 14 4l2-2M20 19v-4h-4"/>',
+ shield:'<path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/>',
+ alert:'<path d="M12 4 3 20h18z"/><path d="M12 10v4M12 17.5v.5"/>'
+};
+const ic=(n,s)=>{s=s||18;return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+P[n]+'</svg>'};
+const KINDS={
+ web:{label:'Website',hint:'Reads public pages from a web address.',icon:'web',unit:'pages',ph:'https://help.example.com'},
+ folder:{label:'Shared folder',hint:'Reads files from a drive folder.',icon:'folder',unit:'files',ph:'Shared drive / Team / Folder'},
+ wiki:{label:'Wiki or notes',hint:'Reads pages from your team wiki.',icon:'page',unit:'pages',ph:'Workspace / Space'},
+ pdf:{label:'Uploaded files',hint:'PDFs and documents you upload.',icon:'page',unit:'files',ph:'Name for this file collection'},
+ db:{label:'Database',hint:'Read-only access to tables.',icon:'sources',unit:'rows',ph:'orders_read_only'},
+ api:{label:'API',hint:'Pulls records from another tool.',icon:'api',unit:'records',ph:'https://api.example.com/tickets'}
+};
+const TOOLS=['Search documents','Browse the web','Send email','Create ticket','Read spreadsheets'];
+const OUTPUTS=['Plain text','Bullets','Table','JSON'];
+const TYPES=[['Instruction','Instruction','A set of rules the agent follows.'],['Workflow','Workflow','A sequence of steps the agent carries out.'],['Tool','Tool','Lets the agent act outside the chat, such as sending email.']];
+const AUTONOMY=[['ask','Ask first','Proposes each action and waits for your approval.'],['act','Act, then report','Takes routine actions and tells you what it did.'],['auto','Fully autonomous','Handles requests end to end without check-ins.']];
+const MODELS=[['fast','Fast and light'],['balanced','Balanced'],['deep','Most capable']];
+const TPLS=[
+ {id:'support',label:'Customer support',hint:'Answers from your help content',name:'Support Helper',role:'Answers customer questions from your help content.',skills:['s1','s3'],sources:['src1']},
+ {id:'research',label:'Research',hint:'Builds short briefs',name:'Research Helper',role:'Builds short briefs from reports and the web.',skills:['s4','s2'],sources:['src4']},
+ {id:'contracts',label:'Contracts',hint:'Flags risky clauses',name:'Contract Helper',role:'Flags risky clauses and explains them simply.',skills:['s5','s6'],sources:['src2']},
+ {id:'blank',label:'Blank',hint:'Start from nothing',name:'',role:'',skills:[],sources:[]}
+];
+const STPL=[
+ {id:'blank',label:'Blank skill',hint:'Write everything yourself',v:{name:'Untitled skill',type:'Instruction',desc:'',trigger:'',instructions:'',tools:[],output:'Plain text',ex:{in:'',out:'Your result appears here once you run the skill.'}}},
+ {id:'sum',label:'Summarize anything',hint:'Shortens long text into key points',v:{name:'Summarize anything',type:'Instruction',desc:'Shortens long text into the key points.',trigger:'The user pastes or attaches long text.',instructions:'Read the full text first.\nWrite 3 to 5 bullet points.\nKeep names, numbers and dates exact.',tools:[],output:'Bullets',ex:{in:'Paste an article, meeting notes or an email thread here.',out:'• Main point one\n• Main point two\n• Main point three'}}},
+ {id:'ext',label:'Extract details',hint:'Pulls names, dates and amounts',v:{name:'Extract details',type:'Instruction',desc:'Pulls names, dates and amounts into a table.',trigger:'A document contains facts that should be listed.',instructions:'Find every person, date and amount.\nPut each one in its own row.\nWrite "unknown" when a value is missing.',tools:[],output:'Table',ex:{in:'Invoice 2041 from Alder GmbH, due 30 Nov, EUR 1,240.',out:'Vendor   | Alder GmbH\nInvoice  | 2041\nDue      | 30 Nov\nAmount   | EUR 1,240'}}},
+ {id:'rev',label:'Review against rules',hint:'Checks a draft step by step',v:{name:'Review against rules',type:'Workflow',desc:'Checks a document step by step against your rules.',trigger:'A draft needs checking before it goes out.',instructions:'1. Load the rules from the attached sources.\n2. Compare the draft with each rule.\n3. List every mismatch and where it appears.\n4. Suggest one fix per mismatch.',tools:['Search documents'],output:'Bullets',ex:{in:'Draft: "We guarantee delivery in 24 hours."',out:'• Rule 4.1: no delivery guarantees. Found in sentence 1.\n• Fix: "We aim to deliver within 24 hours."'}}}
+];
+
+const S={
+ view:'agents',agentId:null,skillId:null,tab:'config',
+ agentFilter:'all',agentQuery:'',skillFilter:'all',skillQuery:'',bannerHidden:false,
+ sheet:null,chats:{},tryIn:'',tryState:'idle',
+ skills:[
+  {id:'s1',name:'Answer from docs',type:'Instruction',version:3,desc:'Answers questions using only the attached documents and names the page it used.',trigger:'A user asks a factual question about a product, policy or process.',instructions:'Search the attached sources before answering.\nUse only what you find. If the documents do not cover the question, say so.\nEnd every answer with the title of the page you used.\nKeep answers under 120 words unless asked for more.',tools:['Search documents'],output:'Plain text',ex:{in:'Can I change my plan in the middle of a billing cycle?',out:'Yes. Plan changes apply right away and the price difference is prorated for the days left in the cycle.\n\nSource: Billing and plans'}},
+  {id:'s2',name:'Summarize thread',type:'Instruction',version:2,desc:'Turns a long conversation into decisions, owners and open questions.',trigger:'A message thread or ticket has more than ten replies.',instructions:'Read the whole thread first.\nList the decisions that were made, who owns each next step and what is still open.\nIgnore greetings and small talk.',tools:[],output:'Bullets',ex:{in:'Thread: 23 replies about the delayed Berlin shipment.',out:'Decisions\n• Reship with express delivery\n• Refund the shipping costs\n\nOwners\n• Mira sends tracking by Friday\n\nOpen\n• Does the customer still need the invoice?'}},
+  {id:'s3',name:'Escalate to human',type:'Workflow',version:5,desc:'Hands off to a teammate when confidence is low or the customer is upset, with a short note.',trigger:'The customer is angry, asks for a person, or the documents do not answer the question.',instructions:'1. Apologize once, in one sentence.\n2. Summarize the problem and what was already tried.\n3. Create a ticket with the summary.\n4. Tell the customer when a person will reply.',tools:['Create ticket','Send email'],output:'Plain text',ex:{in:'This is the third time my order is late and nobody answers me.',out:'I am sorry about the delay. I have passed this to a teammate with the full history, so you will not need to repeat yourself. You will hear back within one hour.'}},
+  {id:'s4',name:'Web research brief',type:'Workflow',version:4,desc:'Plans searches, reads sources and writes a one-page brief with links.',trigger:'The user asks for a brief, a comparison or a market overview.',instructions:'1. Break the question into three searches.\n2. Read the top sources for each.\n3. Note where sources disagree.\n4. Write one page: summary, key facts, open questions.',tools:['Browse the web','Search documents'],output:'Bullets',ex:{in:'Brief me on the meal-kit market in Germany.',out:'Summary\nThe market is consolidating. Two vendors now bundle tools that were sold separately.\n\nKey facts\n• Three players hold most of the share\n• Prices rose 8% year on year\n\nOpen questions\n• How durable is the churn drop?'}},
+  {id:'s5',name:'Clause check',type:'Instruction',version:2,desc:'Flags contract clauses that deviate from your playbook.',trigger:'A contract or an amendment is attached for review.',instructions:'Compare every clause with the playbook in the attached sources.\nFlag a clause when notice periods, renewal terms or liability caps differ.\nQuote the clause number and say what the playbook expects.',tools:['Search documents'],output:'Table',ex:{in:'Supplier agreement, clause 14.2: auto-renews for 24 months.',out:'Clause | Issue | Playbook\n14.2   | Renews for 24 months | Max 12 months\n14.3   | 90-day notice | 30 days'}},
+  {id:'s6',name:'Plain-language rewrite',type:'Instruction',version:1,desc:'Rewrites legal or technical text so anyone can follow it.',trigger:'The user asks what a clause or a technical passage means.',instructions:'Rewrite in short sentences.\nReplace jargon with everyday words.\nKeep every number, date and name unchanged.',tools:[],output:'Plain text',ex:{in:'The Licensee shall indemnify the Licensor against all claims.',out:'You agree to cover the other party if someone makes a claim because of how you used the product.'}},
+  {id:'s7',name:'Draft weekly update',type:'Workflow',version:3,desc:'Collects closed tickets and wiki changes into a short Friday update.',trigger:'It is Friday afternoon, or the user asks for a status update.',instructions:'1. Count tickets closed and escalated this week.\n2. List wiki pages that changed.\n3. Pick the single biggest change.\n4. Write the update in under 120 words.',tools:['Read spreadsheets','Search documents'],output:'Bullets',ex:{in:'Draft this week’s update.',out:'• 41 tickets closed, 6 escalated\n• Shipping FAQ rewritten\n• 3 wiki pages updated'}},
+  {id:'s8',name:'Create support ticket',type:'Tool',version:1,desc:'Opens a ticket in the helpdesk with a title, priority and summary.',trigger:'A request needs a human follow-up that is not urgent.',instructions:'Create a ticket with a title under 8 words.\nSet priority to high only if the customer cannot use the product.\nPaste the conversation summary into the description.',tools:['Create ticket'],output:'JSON',ex:{in:'Customer cannot download invoice 2041.',out:'{\n  "title": "Invoice 2041 download fails",\n  "priority": "normal",\n  "status": "open"\n}'}}
+ ],
+ sources:[
+  {id:'src1',name:'Help Center',kind:'web',detail:'help.northwind.example',count:412,synced:'2 h ago'},
+  {id:'src2',name:'Contracts 2026',kind:'folder',detail:'Shared drive / Legal / 2026',count:138,synced:'35 min ago'},
+  {id:'src3',name:'Product Wiki',kind:'wiki',detail:'Workspace / Product',count:96,synced:'1 d ago'},
+  {id:'src4',name:'Market reports',kind:'pdf',detail:'Uploaded PDFs',count:54,synced:'6 d ago',stale:true},
+  {id:'src5',name:'Orders database',kind:'db',detail:'orders_read_only',count:12400,synced:'10 min ago'},
+  {id:'src6',name:'Helpdesk tickets',kind:'api',detail:'Ticket API, last 90 days',count:3870,synced:'1 h ago'}
+ ],
+ agents:[
+  {id:'a1',name:'Support Concierge',role:'Answers customer questions and hands off tricky cases.',emblem:1,status:'active',autonomy:'act',model:'balanced',skills:['s1','s2','s3','s8'],sources:['src1','src6','src5'],lastRun:'4 min ago',runs:1284,
+   instructions:'You are Support Concierge for Northwind. Greet customers by name, answer from the Help Center and hand off to a person when the customer is upset or the answer is missing. Never promise a refund.',
+   prompts:['Can I change my plan mid-cycle?','A customer is angry about a late order'],
+   replies:[{t:'Yes, you can. Plan changes apply right away and the price difference is prorated for the days left in your billing cycle.\n\nWant me to start the change for you?',sk:'s1',src:'src1'},{t:'I am sorry about the delay. Order 48213 left the warehouse on Monday and is two days late. I wrote a handoff note and passed this to a teammate, who will reply within the hour.',sk:'s3',src:'src5'}]},
+  {id:'a2',name:'Research Scout',role:'Builds one-page briefs on markets and competitors.',emblem:3,status:'active',autonomy:'ask',model:'deep',skills:['s4','s2','s6'],sources:['src4','src3'],lastRun:'1 h ago',runs:212,
+   instructions:'You are Research Scout. Plan three searches per question, cite every source and say clearly where sources disagree. Keep briefs to one page.',
+   prompts:['Brief me on the meal-kit market','Compare our top 3 competitors'],
+   replies:[{t:'Brief started. I will read three market reports, compare pricing and positioning, and give you one page.\n\nEarly finding: the category is consolidating, and two vendors now bundle tools that used to be sold separately.',sk:'s4',src:'src4'},{t:'Top three by share: Alder, Brightline and Kestrel. Alder leads on price and Kestrel on onboarding. Brightline is the only one with a self-serve tier.',sk:'s4',src:'src3'}]},
+  {id:'a3',name:'Contract Reviewer',role:'Flags risky clauses and explains them in plain language.',emblem:2,status:'active',autonomy:'ask',model:'deep',skills:['s5','s6'],sources:['src2'],lastRun:'3 h ago',runs:87,
+   instructions:'You are Contract Reviewer for the legal team. Compare every contract with the playbook, flag deviations by clause number and explain each in plain words. You do not give legal advice.',
+   prompts:['Check the Acme supplier contract','Explain clause 14 simply'],
+   replies:[{t:'Clause 14.2 deviates from your playbook. The contract renews for 24 months and needs 90 days of notice. In plain words: if you miss the notice window, you are locked in for two more years.',sk:'s5',src:'src2'},{t:'Clause 14 in plain words: the contract renews by itself unless you cancel in writing at least 90 days before the end date. Set a reminder for day 270 of each term.',sk:'s6',src:'src2'}]},
+  {id:'a4',name:'Weekly Reporter',role:'Drafts the Friday status update from tickets and wiki changes.',emblem:4,status:'paused',autonomy:'act',model:'fast',skills:['s7','s2'],sources:['src6','src3'],lastRun:'Fri 16:02',runs:36,
+   instructions:'You are Weekly Reporter. Every Friday, summarize the week for the leadership team in under 120 words. Lead with the single biggest change.',
+   prompts:['Draft this week’s update'],
+   replies:[{t:'Draft ready for Friday.\n\n• 41 tickets closed, 6 escalated\n• Shipping FAQ rewritten\n• 3 wiki pages updated\n\nWant it shorter?',sk:'s7',src:'src6'}]}
+ ]
+};
+try{const h=(location.hash||'').slice(1);if(['agents','skills','sources','policies'].indexOf(h)>-1)S.view=h}catch(e){}
+
+const agentById=(id)=>S.agents.find((a)=>a.id===id);
+const skillById=(id)=>S.skills.find((s)=>s.id===id);
+const srcById=(id)=>S.sources.find((s)=>s.id===id);
+const uid=(p)=>p+Math.random().toString(36).slice(2,7);
+const initials=(n)=>String(n).trim().split(/\s+/).slice(0,2).map((w)=>w[0]||'').join('').toUpperCase()||'?';
+const emblem=(a,sz)=>'<span class="emb '+(sz||'')+' e'+a.emblem+'" aria-hidden="true">'+esc(initials(a.name))+'</span>';
+const agentsUsing=(kind,id)=>S.agents.filter((a)=>a[kind].indexOf(id)>-1);
+const plural=(n,w)=>n+' '+w+(n===1?'':'s');
+const seg=(items,cur,action)=>'<div class="seg" role="group">'+items.map((i)=>'<button class="'+(i[0]===cur?'on':'')+'" aria-pressed="'+(i[0]===cur)+'" data-action="'+action+'" data-v="'+i[0]+'">'+i[1]+'</button>').join('')+'</div>';
+const sw=(on,action,id,label)=>'<button class="switch" role="switch" aria-checked="'+on+'" aria-label="'+esc(label)+'" data-action="'+action+'" data-id="'+id+'"></button>';
+const opt=(icon,title,meta,on,action,id)=>'<button class="opt '+(on?'on':'')+'" role="checkbox" aria-checked="'+on+'" data-action="'+action+'" data-id="'+id+'"><span class="ico">'+ic(icon)+'</span><span class="opt-main"><strong>'+esc(title)+'</strong><span class="small muted">'+esc(meta)+'</span></span><span class="tick">'+(on?ic('check',14):'')+'</span></button>';
+const srcMeta=(s)=>s.count.toLocaleString('en')+' '+KINDS[s.kind].unit+' · synced '+s.synced;
+
+/* ---------- chrome ---------- */
+const LOGO='<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect class="logo-bg" width="28" height="28" rx="8"/><path class="logo-fg" d="M7 9h14M7 14h9M7 19h12" stroke-width="2.4" stroke-linecap="round"/></svg>';
+const topOf=()=>S.view==='agent'?'agents':S.view==='skill'?'skills':S.view;
+const NAV=[['agents','Agents','agents'],['skills','Skills','skills'],['sources','Data sources','sources'],['policies','Policies','shield']];
+function railHTML(){
+ const counts={agents:S.agents.length,skills:S.skills.length,sources:S.sources.length,policies:openItems()};
+ return '<div class="brand">'+LOGO+'<span>Foreman</span></div><nav class="nav" aria-label="Main">'+
+  NAV.map((n)=>'<button class="nav-item '+(topOf()===n[0]?'on':'')+'" data-action="nav" data-view="'+n[0]+'">'+ic(n[2])+'<span>'+n[1]+'</span><em>'+counts[n[0]]+'</em></button>').join('')+
+  '</nav>'+whoBtn()+'<div class="rail-note"><strong>Click-dummy</strong>Everything is clickable. Nothing is saved, reload to reset.</div>';
+}
+function tabHTML(){
+ return NAV.map((n)=>'<button class="tab '+(topOf()===n[0]?'on':'')+'" data-action="nav" data-view="'+n[0]+'" aria-label="'+n[1]+'"><span class="tb-ic">'+ic(n[2],20)+'</span>'+(n[0]==='sources'?'Data':n[1])+'</button>').join('');
+}
+
+/* ---------- agents ---------- */
+function agentCard(a){
+ const sk=a.skills.map(skillById).filter(Boolean);
+ const chips=sk.slice(0,3).map((s)=>'<span class="chip">'+esc(s.name)+'</span>').join('')+(sk.length>3?'<span class="chip">+'+(sk.length-3)+'</span>':'');
+ const on=a.status==='active';
+ return '<article class="card acard" tabindex="0" role="link" aria-label="Open '+esc(a.name)+'" data-action="open-agent" data-id="'+a.id+'">'+
+  '<div class="ac-top">'+emblem(a)+'<div class="ac-id"><h3>'+esc(a.name)+'</h3><p>'+esc(a.role)+'</p></div>'+sw(on,'toggle-status',a.id,(on?'Pause ':'Activate ')+a.name)+'</div>'+
+  '<div class="chips">'+(chips||'<span class="small muted">No skills yet</span>')+'</div>'+
+  '<div class="ac-foot"><span>'+ic('skills',15)+plural(sk.length,'skill')+'</span><span>'+ic('sources',15)+plural(a.sources.length,'source')+'</span><span class="pill '+gcls(guardScore(a).n)+'" title="Guardrails">'+ic('shield',13)+guardScore(a).n+'/'+CTRL.length+'</span><span class="grow"></span><span><i class="dot '+(on?'':'paused')+'"></i>'+(on?'Active':'Paused')+' · '+esc(a.lastRun)+'</span></div></article>';
+}
+function agentGrid(){
+ const q=S.agentQuery.toLowerCase();
+ const list=S.agents.filter((a)=>(S.agentFilter==='all'||a.status===S.agentFilter)&&(!q||(a.name+' '+a.role).toLowerCase().indexOf(q)>-1));
+ let h=list.map(agentCard).join('');
+ if(!list.length)h='<p class="empty">No agent matches. Clear the search or pick another filter.</p>';
+ return h+'<button class="newtile" data-action="new-agent">'+ic('plus',24)+'Create an agent</button>';
+}
+function viewAgents(){
+ const act=S.agents.filter((a)=>a.status==='active').length;
+ return '<header class="ph"><div><h1>Agents</h1><p class="sub">'+plural(S.agents.length,'agent')+', '+act+' active. Each agent has a job, data it may read and skills it can use.</p></div><button class="btn primary" data-action="new-agent">'+ic('plus')+'New agent</button></header>'+
+ (S.bannerHidden?'':'<section class="how" aria-label="How it fits together"><div class="how-h"><strong>How it fits together</strong><button class="btn ghost sm" data-action="hide-banner">Hide</button></div><ol>'+
+  '<li><b>1</b><span><strong>Create an agent.</strong> Give it a name and a job.</span></li>'+
+  '<li><b>2</b><span><strong>Attach data.</strong> Choose what it is allowed to read.</span></li>'+
+  '<li><b>3</b><span><strong>Add skills.</strong> Teach it tasks it can repeat.</span></li></ol></section>')+
+ '<div class="toolbar">'+seg([['all','All'],['active','Active'],['paused','Paused']],S.agentFilter,'filter-agents')+
+ '<div class="search">'+ic('search',18)+'<label class="sr" for="aq">Search agents</label><input id="aq" type="search" placeholder="Search agents" data-input="agentQuery" value="'+esc(S.agentQuery)+'"></div></div>'+
+ '<div class="grid" id="agentGrid">'+agentGrid()+'</div>';
+}
+
+/* ---------- chat ---------- */
+function chatFor(a){
+ if(!S.chats[a.id])S.chats[a.id]=[{role:'bot',text:'Hi, I am '+a.name+'. '+a.role+' Try a suggested prompt or ask your own question.',trace:[]}];
+ return S.chats[a.id];
+}
+function msgHTML(m){
+ if(m.role==='user')return '<div class="msg user">'+esc(m.text)+'</div>';
+ if(m.typing)return '<div class="msg bot typing" aria-label="Typing"><i></i><i></i><i></i></div>';
+ return '<div class="msg bot"><div>'+esc(m.text)+'</div>'+(m.trace&&m.trace.length?'<div class="trace">'+m.trace.map((t)=>'<span>'+ic(t.i,12)+esc(t.n)+'</span>').join('')+'</div>':'')+'</div>';
+}
+function paintMsgs(){
+ const m=$('#msgs');const a=agentById(S.agentId);
+ if(m&&a){m.innerHTML=chatFor(a).map(msgHTML).join('');m.scrollTop=m.scrollHeight}
+}
+function makeReply(a,text,idx,c){
+ const sk=a.skills.map(skillById).filter(Boolean),so=a.sources.map(srcById).filter(Boolean);
+ const gr=guardReply(a,text);if(gr&&!gr.note)return gr;const nt=gr&&gr.note!==undefined?gr:null;
+ if(!sk.length&&!so.length)return {text:'I have no skills or data attached yet, so I can only answer in general terms. Add a skill or a data source on the left, then ask again.',trace:[]};
+ const n=idx!=null?idx:c.filter((x)=>x.role==='user').length-1;
+ const r=a.replies&&a.replies.length?a.replies[n%a.replies.length]:null;
+ const k=(r&&a.skills.indexOf(r.sk)>-1?skillById(r.sk):null)||sk[0];
+ const d=(r&&a.sources.indexOf(r.src)>-1?srcById(r.src):null)||so[0];
+ const t=r?r.t:'On it. I would use “'+(k?k.name:'my general knowledge')+'” on your request'+(d?' and read from '+d.name:'')+', then send back a short answer you can check.';
+ const trace=[];if(k)trace.push({i:'skills',n:k.name});if(d)trace.push({i:KINDS[d.kind].icon,n:d.name});
+ return {text:t+(nt&&nt.note?'\n\nNote: '+nt.note:''),trace:trace.concat(nt?nt.trace:[])};
+}
+function sendChat(text,idx){
+ text=(text||'').trim();if(!text)return;
+ const a=agentById(S.agentId);if(!a)return;
+ const c=chatFor(a);c.push({role:'user',text:text});
+ const tm={role:'bot',typing:true};c.push(tm);paintMsgs();
+ const aid=a.id;
+ setTimeout(()=>{
+  const i=c.indexOf(tm);const r=makeReply(a,text,idx,c);
+  if(i>-1)c[i]={role:'bot',text:r.text,trace:r.trace};
+  if(S.view==='agent'&&S.agentId===aid)paintMsgs();
+ },900);
+}
+
+/* ---------- agent detail ---------- */
+function viewAgent(){
+ const a=agentById(S.agentId);const on=a.status==='active';
+ const au=AUTONOMY.find((x)=>x[0]===a.autonomy)||AUTONOMY[0];
+ const sk=a.skills.map(skillById).filter(Boolean),so=a.sources.map(srcById).filter(Boolean);
+ const skRows=sk.map((s)=>'<div class="row"><span class="ico">'+ic('skills')+'</span><div class="row-main"><button class="linkish" data-action="open-skill" data-id="'+s.id+'">'+esc(s.name)+'</button><span class="small muted">'+esc(s.desc)+'</span></div><span class="badge t-'+s.type+'">'+s.type+'</span><button class="iconbtn" aria-label="Remove '+esc(s.name)+'" data-action="remove-skill" data-id="'+s.id+'">'+ic('close',16)+'</button></div>').join('');
+ const soRows=so.map((s)=>'<div class="row"><span class="ico">'+ic(KINDS[s.kind].icon)+'</span><div class="row-main"><strong>'+esc(s.name)+'</strong><span class="small muted">'+esc(srcMeta(s))+'</span></div><button class="iconbtn" aria-label="Remove '+esc(s.name)+'" data-action="remove-source" data-id="'+s.id+'">'+ic('close',16)+'</button></div>').join('');
+ const msgs=chatFor(a).map(msgHTML).join('');
+ const prompts=(a.prompts||[]).map((p,i)=>'<button class="pchip" data-action="prompt" data-i="'+i+'">'+esc(p)+'</button>').join('');
+ return '<button class="back" data-action="nav" data-view="agents">'+ic('back')+'Agents</button>'+
+ '<header class="ah">'+emblem(a,'lg')+'<div class="ah-main"><label class="sr" for="agName">Agent name</label><input id="agName" class="title-input" maxlength="40" value="'+esc(a.name)+'" data-input="agent.name"><p class="sub">'+(a.runs?a.runs.toLocaleString('en')+' conversations · last run '+esc(a.lastRun):'No conversations yet')+'</p></div>'+
+ '<div class="ah-actions"><label class="status-toggle">'+sw(on,'toggle-status',a.id,'Agent active')+'<span>'+(on?'Active':'Paused')+'</span></label><button class="btn primary" data-action="save-agent">'+ic('check')+'Save</button></div></header>'+
+ '<div class="mtabs">'+seg([['config','Configure'],['guard','Guardrails'],['test','Test']],S.tab,'tab')+'</div><div class="dtabs">'+seg([['config','Configure'],['guard','Guardrails']],S.tab==='guard'?'guard':'config','tab')+'</div>'+
+ '<div class="ag-layout" data-tab="'+S.tab+'"><div class="col config"><div class="col setup">'+
+  '<section class="card panel"><div class="panel-h"><div><h2>Job and instructions</h2><p>Tell the agent who it is, who it helps and how to behave.</p></div></div>'+
+   '<div class="field"><label for="agRole">Job in one line</label><input id="agRole" data-input="agent.role" value="'+esc(a.role)+'"></div>'+
+   '<div class="field"><label for="agIns">Instructions</label><textarea id="agIns" rows="6" data-input="agent.instructions">'+esc(a.instructions)+'</textarea></div>'+
+   '<div class="field"><span class="lbl">How much freedom does it have?</span>'+seg(AUTONOMY.map((x)=>[x[0],x[1]]),a.autonomy,'set-autonomy')+'<p class="hint">'+au[2]+'</p></div>'+
+   '<div class="field"><label for="agModel">Model</label><select id="agModel" data-input="agent.model">'+MODELS.map((m)=>'<option value="'+m[0]+'"'+(m[0]===a.model?' selected':'')+'>'+m[1]+'</option>').join('')+'</select></div></section>'+
+  '<section class="card panel"><div class="panel-h"><div><h2>Skills</h2><p>The agent picks the right skill for each request.</p></div><button class="btn sm" data-action="pick-skill">'+ic('plus',16)+'Add skill</button></div>'+
+   '<div class="rows">'+(skRows||'<div class="rowempty">No skills yet. Add a skill to teach this agent a task it can repeat.</div>')+'</div></section>'+
+  '<section class="card panel"><div class="panel-h"><div><h2>Data sources</h2><p>The agent can only read what you attach here.</p></div><button class="btn sm" data-action="pick-source">'+ic('plus',16)+'Add source</button></div>'+
+   '<div class="rows">'+(soRows||'<div class="rowempty">No data attached. Without data the agent can only answer in general terms.</div>')+'</div></section>'+
+ '</div><div class="col guard">'+guardPanels(a)+'</div></div><aside class="col test"><section class="card test-card"><div class="tc-h"><div><h2>Try '+esc(a.name)+'</h2><p class="small muted">Using '+plural(sk.length,'skill')+' and '+plural(so.length,'source')+'</p></div><button class="btn ghost sm" data-action="reset-chat">Reset</button></div>'+
+  '<div class="msgs" id="msgs" aria-live="polite">'+msgs+'</div><div class="prompts">'+prompts+guardChips()+ruleChips(a)+'</div>'+
+  '<form class="composer" id="chatForm"><label class="sr" for="chatInput">Message</label><input id="chatInput" autocomplete="off" placeholder="Ask '+esc(a.name)+' something"><button class="btn primary" aria-label="Send">'+ic('send')+'</button></form></section></aside></div>';
+}
+
+/* ---------- skills ---------- */
+function skillCard(s){
+ const us=agentsUsing('skills',s.id);
+ return '<article class="card scard" tabindex="0" role="link" aria-label="Edit '+esc(s.name)+'" data-action="open-skill" data-id="'+s.id+'"><div class="sc-top"><span class="badge t-'+s.type+'">'+s.type+'</span><span class="num">v'+s.version+'</span></div>'+
+  '<div><h3>'+esc(s.name)+'</h3><p>'+esc(s.desc||'No description yet.')+'</p></div>'+
+  '<div class="ac-foot">'+(us.length?'<span class="stack">'+us.slice(0,4).map((a)=>emblem(a,'sm')).join('')+'</span><span>Used by '+plural(us.length,'agent')+'</span>':'<span class="muted">Not used by any agent yet</span>')+'</div></article>';
+}
+function skillGrid(){
+ const q=S.skillQuery.toLowerCase();
+ const list=S.skills.filter((s)=>(S.skillFilter==='all'||s.type===S.skillFilter)&&(!q||(s.name+' '+s.desc).toLowerCase().indexOf(q)>-1));
+ return (list.length?list.map(skillCard).join(''):'<p class="empty">No skill matches. Clear the search or pick another type.</p>')+'<button class="newtile" data-action="new-skill">'+ic('plus',24)+'Define a skill</button>';
+}
+function viewSkills(){
+ return '<header class="ph"><div><h1>Skills</h1><p class="sub">Reusable abilities. Define a skill once, then give it to any agent.</p></div><button class="btn primary" data-action="new-skill">'+ic('plus')+'New skill</button></header>'+
+ '<div class="toolbar">'+seg([['all','All'],['Instruction','Instruction'],['Workflow','Workflow'],['Tool','Tool']],S.skillFilter,'filter-skills')+
+ '<div class="search">'+ic('search',18)+'<label class="sr" for="sq">Search skills</label><input id="sq" type="search" placeholder="Search skills" data-input="skillQuery" value="'+esc(S.skillQuery)+'"></div></div>'+
+ '<div class="grid" id="skillGrid">'+skillGrid()+'</div>';
+}
+function viewSkill(){
+ const s=skillById(S.skillId);const us=agentsUsing('skills',s.id);
+ const td=TYPES.find((t)=>t[0]===s.type)[2];
+ const out=S.tryState==='running'?'<div class="result"><span class="spin"></span> Running the skill…</div>':
+  '<div><span class="lbl">'+(S.tryState==='done'?'Result':'Example result')+'</span></div><div class="result">'+esc(s.ex.out)+'</div>'+(S.tryState==='done'?'<p class="hint">Prototype: this shows sample output. The real app runs your instructions on the input.</p>':'');
+ return '<button class="back" data-action="nav" data-view="skills">'+ic('back')+'Skills</button>'+
+ '<header class="ah"><span class="emb lg sk">'+ic('skills',26)+'</span><div class="ah-main"><label class="sr" for="skName">Skill name</label><input id="skName" class="title-input" maxlength="48" value="'+esc(s.name)+'" data-input="skill.name"><p class="sub">Version '+s.version+' · '+(us.length?'used by '+plural(us.length,'agent'):'not used by any agent yet')+'</p></div>'+
+ '<div class="ah-actions"><button class="btn primary" data-action="save-skill">'+ic('check')+'Save skill</button></div></header>'+
+ '<div class="mtabs">'+seg([['config','Edit'],['test','Try it']],S.tab,'tab')+'</div>'+
+ '<div class="ag-layout" data-tab="'+S.tab+'"><div class="col config"><section class="card panel">'+
+  '<div class="field"><span class="lbl">Type</span>'+seg(TYPES.map((t)=>[t[0],t[1]]),s.type,'set-type')+'<p class="hint">'+td+'</p></div>'+
+  '<div class="field"><label for="skDesc">What it does</label><input id="skDesc" data-input="skill.desc" value="'+esc(s.desc)+'"><p class="hint">Shown in the skill library.</p></div>'+
+  '<div class="field"><label for="skTrig">When should an agent use it?</label><textarea id="skTrig" rows="2" data-input="skill.trigger">'+esc(s.trigger)+'</textarea><p class="hint">The agent reads this to decide whether the skill fits a request.</p></div>'+
+  '<div class="field"><label for="skIns">Instructions</label><textarea id="skIns" class="mono" rows="9" data-input="skill.instructions">'+esc(s.instructions)+'</textarea><p class="hint">Plain sentences, one rule or step per line.</p></div>'+
+  '<div class="field"><span class="lbl">Tools it may use</span><div class="tchips">'+TOOLS.map((t)=>'<button class="tchip '+(s.tools.indexOf(t)>-1?'on':'')+'" aria-pressed="'+(s.tools.indexOf(t)>-1)+'" data-action="toggle-tool" data-v="'+t+'">'+(s.tools.indexOf(t)>-1?ic('check',14):'')+t+'</button>').join('')+'</div></div>'+
+  '<div class="field"><span class="lbl">Answer format</span>'+seg(OUTPUTS.map((o)=>[o,o]),s.output,'set-output')+'</div></section></div>'+
+ '<aside class="col test"><section class="card panel"><div class="panel-h"><div><h2>Try this skill</h2><p>Paste a sample request and run it.</p></div></div>'+
+  '<div class="field"><label for="tryIn">Sample input</label><textarea id="tryIn" rows="4" data-input="tryIn">'+esc(S.tryIn)+'</textarea></div>'+
+  '<button class="btn primary" data-action="run-skill">'+ic('play',16)+'Run skill</button>'+out+'</section>'+
+  '<section class="card panel"><h2>Used by</h2>'+(us.length?'<div class="rows">'+us.map((a)=>'<div class="row">'+emblem(a,'sm')+'<div class="row-main"><button class="linkish" data-action="open-agent" data-id="'+a.id+'">'+esc(a.name)+'</button></div></div>').join('')+'</div>':'<p class="rowempty">No agent uses this skill yet. Open an agent and choose Add skill.</p>')+'</section></aside></div>';
+}
+
+/* ---------- sources ---------- */
+function srow(s){
+ const us=agentsUsing('sources',s.id);const k=KINDS[s.kind];
+ const status=s.syncing?'<span class="pill"><span class="spin"></span>Syncing</span>':'<span class="pill '+(s.stale?'warn':'ok')+'">Synced '+esc(s.synced)+'</span>';
+ return '<article class="card srow"><span class="ico">'+ic(k.icon)+'</span><div style="min-width:0"><h3>'+esc(s.name)+'</h3><p class="small muted">'+k.label+' · '+esc(s.detail)+'</p></div>'+
+  '<div class="srow-side"><span class="num">'+s.count.toLocaleString('en')+' '+k.unit+'</span>'+status+
+  (us.length?'<span class="stack" title="'+esc(us.map((a)=>a.name).join(', '))+'">'+us.slice(0,4).map((a)=>emblem(a,'sm')).join('')+'</span>':'<span class="small muted">Unused</span>')+
+  '<button class="btn sm" data-action="sync" data-id="'+s.id+'"'+(s.syncing?' disabled':'')+'>'+ic('refresh',15)+'Sync</button></div></article>';
+}
+function viewSources(){
+ return '<header class="ph"><div><h1>Data sources</h1><p class="sub">What your agents are allowed to read. Attach a source to an agent on its page.</p></div><button class="btn primary" data-action="connect">'+ic('plus')+'Connect source</button></header><div class="list">'+S.sources.map(srow).join('')+'</div>';
+}
+
+/* ---------- guardrails and policies ---------- */
+const APPR=[['email','Send email'],['refund','Issue refunds'],['delete','Delete or change records'],['share','Share files outside the company'],['ticket','Create tickets']];
+const RETS=[['0','Do not store'],['30','30 days'],['90','90 days'],['365','1 year'],['forever','Unlimited']];
+const LIMITS=[['10','10 records'],['50','50 records'],['200','200 records']];
+const GKEY={'g-pii':'pii','g-special':'special','g-region':'region','g-ret':'retention','g-limit':'limit'};
+const CTRL=[
+ {k:'pii',ok:(g)=>g.pii!=='allow',msg:'Personal data is allowed through. Mask it before the model sees it.',fix:(g)=>{g.pii='mask'}},
+ {k:'special',ok:(g)=>g.special!=='allow',msg:'Special-category data such as health or religion is allowed. Block it or require review.',fix:(g)=>{g.special='block'}},
+ {k:'region',ok:(g)=>g.region==='eu',msg:'Data may leave the EU. Restrict processing to EU locations.',fix:(g)=>{g.region='eu'}},
+ {k:'retention',ok:(g)=>g.retention!=='forever',msg:'Conversations are kept forever. Set a retention period.',fix:(g)=>{g.retention='90'}},
+ {k:'injection',ok:(g)=>g.injection,msg:'Protection against instructions hidden in documents is off.',fix:(g)=>{g.injection=true}},
+ {k:'approvals',ok:(g)=>g.approvals.length>0,msg:'No action needs approval. Require it for sending, refunding or deleting.',fix:(g)=>{g.approvals=['email','refund']}},
+ {k:'purpose',ok:(g)=>g.purpose.trim().length>0,msg:'No purpose is written down. State what this agent is for.',fix:null}
+];
+const guardScore=(a)=>{const gaps=CTRL.filter((c)=>!c.ok(a.guard));return {n:CTRL.length-gaps.length,gaps:gaps}};
+const gcls=(n)=>n===CTRL.length?'ok':n>=5?'warn':'bad';
+const defaultGuard=(role)=>({pii:'mask',special:'block',region:'eu',retention:S.policy.retention,approvals:['email'],injection:true,review:true,limit:'50',purpose:role||''});
+const GUARDS={
+ a1:{pii:'mask',special:'block',region:'eu',retention:'90',approvals:['email','refund'],injection:true,review:true,limit:'50',purpose:'Answer customer questions about orders, plans and billing. Not used for marketing.'},
+ a2:{pii:'mask',special:'block',region:'any',retention:'forever',approvals:[],injection:false,review:false,limit:'200',purpose:'Research on public markets and competitors using public sources.'},
+ a3:{pii:'mask',special:'review',region:'eu',retention:'365',approvals:['share'],injection:true,review:true,limit:'10',purpose:''},
+ a4:{pii:'mask',special:'block',region:'eu',retention:'30',approvals:['email'],injection:true,review:false,limit:'50',purpose:'Summarize internal tickets and wiki changes for leadership.'}
+};
+S.policy={pii:true,special:true,eu:false,retention:'90'};
+S.agents.forEach((a)=>{a.guard=GUARDS[a.id]});
+S.ptab='rules';S.auditFilter='all';
+S.audit=[
+ {t:'18:52',agent:'Support Concierge',ev:'Answered a billing question from Help Center',out:'Allowed'},
+ {t:'18:40',agent:'Support Concierge',ev:'Customer email address replaced before processing',out:'Masked'},
+ {t:'17:15',agent:'Contract Reviewer',ev:'Sharing a redlined contract outside the company',out:'Needs approval'},
+ {t:'16:48',agent:'Support Concierge',ev:'Message mentioned a medical condition',out:'Blocked'},
+ {t:'16:02',agent:'Weekly Reporter',ev:'Drafted the weekly update from 41 tickets',out:'Allowed'},
+ {t:'15:30',agent:'Research Scout',ev:'Read 3 reports from Market reports',out:'Allowed'},
+ {t:'14:11',agent:'Support Concierge',ev:'Refund of EUR 39.90 prepared, waiting for a person',out:'Needs approval'},
+ {t:'13:26',agent:'Contract Reviewer',ev:'IBAN in a supplier contract masked in the summary',out:'Masked'}
+];
+S.records=[
+ {id:'r1',title:'Record of processing activities',meta:'Owner: Data protection officer · updated 12 Oct',status:'done'},
+ {id:'r2',title:'Data protection impact assessment, Support Concierge',meta:'Owner: Legal · due 30 Nov',status:'doing'},
+ {id:'r3',title:'Data processing agreement with the model provider',meta:'Owner: Legal · signed 3 Sep',status:'done'},
+ {id:'r4',title:'Privacy notice shown to chat users',meta:'Owner: Support lead · not started',status:'todo'}
+];
+S.dsr=[
+ {id:'d1',title:'Access request, A. Keller',meta:'Due in 12 days',urgent:false,done:false},
+ {id:'d2',title:'Deletion request, M. Brandt',meta:'Due in 3 days',urgent:true,done:false}
+];
+const openItems=()=>S.records.filter((r)=>r.status!=='done').length+S.dsr.filter((d)=>!d.done).length+S.rules.filter((r)=>r.pending).length;
+
+const RE={email:/[\w.+-]+@[\w-]+\.[\w.]+/,iban:/\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){3,7}\b/,special:/\b(sick|illness|diagnos\w*|medical|health|pregnan\w*|religio\w*)\b/i};
+const maskText=(t)=>t.replace(new RegExp(RE.email.source,'g'),'[email]').replace(new RegExp(RE.iban.source,'g'),'[IBAN]');
+function logAudit(agent,ev,out){
+ S.audit.unshift({t:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}),agent:agent,ev:ev,out:out});
+}
+function guardReply(a,t){
+ const g=a.guard;if(!g)return null;
+ if(RE.special.test(t)&&g.special!=='allow'){
+  if(g.special==='block'){logAudit(a.name,'Message mentioned health-related data','Blocked');return {text:'I cannot process health or other special-category data, and I did not store your message. Please contact a person about this.',trace:[{i:'shield',n:'Special data blocked'}]}}
+  logAudit(a.name,'Message mentioned health-related data','Needs approval');return {text:'This message touches special-category data. I paused and sent it to a reviewer. You will get an answer once it is approved.',trace:[{i:'shield',n:'Sent to human review'}]};
+ }
+ if((RE.email.test(t)||RE.iban.test(t))&&g.pii!=='allow'){
+  if(g.pii==='block'){logAudit(a.name,'Message with personal data rejected','Blocked');return {text:'Your message contains personal data, so I cannot process it. Please remove it and ask again.',trace:[{i:'shield',n:'Personal data blocked'}]}}
+  logAudit(a.name,'Personal data replaced before processing','Masked');
+  return {text:'I replaced the personal data with placeholders before processing: “'+maskText(t)+'”\n\nI can continue without it. Which order do you mean?',trace:[{i:'shield',n:'Personal data masked'}]};
+ }
+ if(/refund/i.test(t)&&g.approvals.indexOf('refund')>-1){
+  logAudit(a.name,'Refund prepared, waiting for a person','Needs approval');
+  return {text:'I prepared a refund of EUR 39.90 for order 48213. A team member has to approve it before it is sent. I will tell you when it is done.',trace:[{i:'shield',n:'Waiting for approval'}]};
+ }
+ return customGuard(a,t);
+}
+const GTESTS=[['My email is anna.keller@mail.example, please update my order.','Test: personal data'],['I have been sick for two weeks, please update my file.','Test: health data'],['Please refund order 48213.','Test: refund']];
+const guardChips=()=>'<span class="small muted" style="width:100%">Guardrail tests</span>'+GTESTS.map((g,i)=>'<button class="pchip g" data-action="guard-prompt" data-i="'+i+'">'+ic('shield',13)+' '+g[1].replace('Test: ','')+'</button>').join('');
+
+const ctl=(title,desc,on,action,v,locked)=>'<div class="ctl"><div><strong>'+title+'</strong><p class="small muted">'+desc+'</p></div><button class="switch" role="switch" aria-checked="'+on+'" aria-label="'+esc(title)+'"'+(locked?' disabled':' data-action="'+action+'" data-v="'+v+'"')+'></button></div>';
+const lock=(t)=>'<p class="lock">'+ic('shield',14)+t+'</p>';
+
+function guardPanels(a){
+ const g=a.guard,pol=S.policy,sc=guardScore(a);
+ const piiOpts=[['mask','Mask'],['block','Block']].concat(pol.pii?[]:[['allow','Allow']]);
+ const spOpts=[['block','Block'],['review','Needs review']].concat(pol.special?[]:[['allow','Allow']]);
+ const rgOpts=pol.eu?[['eu','EU only']]:[['eu','EU only'],['any','Anywhere']];
+ const gaps=sc.gaps.map((c)=>'<div class="row"><span class="ico">'+ic('alert')+'</span><div class="row-main"><strong>'+c.msg+'</strong></div><button class="btn sm" data-action="fix" data-v="'+c.k+'">'+(c.fix?'Fix':'Write it')+'</button></div>').join('');
+ return '<section class="card panel"><div class="panel-h"><div><h2>Guardrail check</h2><p>'+sc.n+' of '+CTRL.length+' recommended controls are on.</p></div><span class="pill '+gcls(sc.n)+'">'+sc.n+'/'+CTRL.length+'</span></div>'+
+  '<div class="meter '+gcls(sc.n)+'" aria-hidden="true">'+CTRL.map((c,i)=>'<i class="'+(i<sc.n?'on':'')+'"></i>').join('')+'</div>'+
+  (gaps?'<div class="rows">'+gaps+'</div>':'<p class="small muted">All recommended controls are on. Run a test in the chat to see them work.</p>')+
+  '<button class="btn sm mob-only" data-action="tab" data-v="test">'+ic('play',14)+'Test in chat</button></section>'+
+ '<section class="card panel"><div class="panel-h"><div><h2>Purpose</h2><p>What is this agent allowed to be used for? Anything else is out of scope.</p></div></div>'+
+  '<div class="field"><label class="sr" for="gPurpose">Purpose</label><textarea id="gPurpose" rows="3" data-input="guard.purpose" placeholder="e.g. Answer customer questions about orders and billing. Not used for marketing.">'+esc(g.purpose)+'</textarea></div></section>'+
+ '<section class="card panel"><div class="panel-h"><div><h2>Personal data</h2><p>What happens when a message or document contains personal data.</p></div></div>'+
+  '<div class="field"><span class="lbl">Names, emails, IBANs</span>'+seg(piiOpts,g.pii,'g-pii')+'<p class="hint">Mask replaces the value with a placeholder before the model sees it.</p>'+(pol.pii?lock('Workspace rule: personal data cannot be set to Allow.'):'')+'</div>'+
+  '<div class="field"><span class="lbl">Special categories (health, religion)</span>'+seg(spOpts,g.special,'g-special')+'<p class="hint">Needs review sends the message to a person before the agent answers.</p>'+(pol.special?lock('Workspace rule: special-category data cannot be set to Allow.'):'')+'</div></section>'+
+ '<section class="card panel"><div class="panel-h"><div><h2>Actions</h2><p>The agent prepares these actions and waits for a person to approve.</p></div></div>'+
+  '<div class="tchips">'+APPR.map((x)=>{const on=g.approvals.indexOf(x[0])>-1;return '<button class="tchip '+(on?'on':'')+'" aria-pressed="'+on+'" data-action="toggle-appr" data-v="'+x[0]+'">'+(on?ic('check',14):'')+x[1]+'</button>'}).join('')+'</div>'+
+  '<div class="field"><span class="lbl">Most records in one answer</span>'+seg(LIMITS,g.limit,'g-limit')+'<p class="hint">Stops the agent from dumping a whole table into a chat.</p></div></section>'+
+ '<section class="card panel"><div class="panel-h"><div><h2>Location and retention</h2><p>Where data is processed and how long conversations are kept.</p></div></div>'+
+  '<div class="field"><span class="lbl">Processing location</span>'+seg(rgOpts,g.region,'g-region')+(pol.eu?lock('Workspace rule: data stays in the EU.'):'')+'</div>'+
+  '<div class="field"><span class="lbl">Keep conversations for</span>'+seg(RETS,g.retention,'g-ret')+'<p class="hint">After this period, conversations are deleted automatically.</p></div></section>'+
+ '<section class="card panel"><div class="panel-h"><div><h2>Safety checks</h2></div></div><div class="ctls">'+
+  ctl('Block hidden instructions','Ignores commands that are hidden inside documents or web pages.',g.injection,'toggle-guard','injection')+
+  ctl('Human review for decisions about people','A person confirms before the agent decides on hiring, credit or similar.',g.review,'toggle-guard','review')+
+  ctl('Audit log','Every action is recorded. This cannot be turned off.',true,null,null,true)+'</div></section>'+customPanel(a);
+}
+
+/* ---------- policies page ---------- */
+const OUTCLS={'Allowed':'ok','Masked':'','Blocked':'bad','Needs approval':'warn'};
+function policyRules(){
+ const pol=S.policy;
+ const rows=S.agents.map((a)=>{const sc=guardScore(a);return '<div class="row">'+emblem(a,'sm')+'<div class="row-main"><button class="linkish" data-action="open-guard" data-id="'+a.id+'">'+esc(a.name)+'</button><span class="small muted">'+(sc.gaps.length?plural(sc.gaps.length,'control')+' missing':'All controls on')+'</span></div><span class="pill '+gcls(sc.n)+'">'+sc.n+'/'+CTRL.length+'</span></div>'}).join('');
+ return '<div class="col"><section class="card panel"><div class="panel-h"><div><h2>Workspace rules</h2><p>Apply to every agent. An agent can be stricter, never looser.</p></div></div>'+(isAdmin()?'':lock('Only admins can change workspace rules.'))+'<div class="ctls">'+
+  ctl('Mask or block personal data','Names, emails and IBANs never reach the model unmasked.',pol.pii,'p-toggle','pii',!isAdmin())+
+  ctl('Block special-category data','Health, religion and similar data is blocked or needs review.',pol.special,'p-toggle','special',!isAdmin())+
+  ctl('Keep data in the EU','Processing and storage only in EU locations.',pol.eu,'p-toggle','eu',!isAdmin())+
+  ctl('Audit log','Every agent action is recorded and cannot be edited.',true,null,null,true)+'</div>'+
+  '<div class="field"><span class="lbl">Default retention for new agents</span>'+seg(RETS,pol.retention,'p-ret')+'</div></section>'+
+  '<section class="card panel"><div class="panel-h"><div><h2>Agent guardrail status</h2><p>Open an agent to change its guardrails.</p></div></div><div class="rows">'+rows+'</div></section></div>';
+}
+function auditView(){
+ const f=S.auditFilter;const list=S.audit.filter((x)=>f==='all'||x.out===f);
+ return '<section class="card panel"><div class="panel-h"><div><h2>Audit log</h2><p>Today. Entries cannot be edited and are kept for 12 months.</p></div><button class="btn sm" data-action="export-log">Export</button></div>'+
+  seg([['all','All'],['Allowed','Allowed'],['Masked','Masked'],['Blocked','Blocked'],['Needs approval','Needs approval']],f,'audit-filter')+
+  '<div>'+(list.length?list.map((x)=>'<div class="logrow"><span class="num">'+x.t+'</span><div class="row-main"><strong>'+esc(x.ev)+'</strong><span class="small muted">'+esc(x.agent)+'</span></div><span class="pill '+OUTCLS[x.out]+'">'+x.out+'</span></div>').join(''):'<p class="rowempty">No entries with this outcome.</p>')+'</div></section>';
+}
+function recordsView(){
+ const ST={done:['Done','ok'],doing:['In progress','warn'],todo:['To do','']};
+ return '<div class="col"><section class="card panel"><div class="panel-h"><div><h2>Compliance records</h2><p>The paperwork auditors and regulators ask for.</p></div></div><div class="rows">'+
+  S.records.map((r)=>'<div class="row"><div class="row-main"><strong>'+esc(r.title)+'</strong><span class="small muted">'+esc(r.meta)+'</span></div><span class="pill '+ST[r.status][1]+'">'+ST[r.status][0]+'</span>'+(r.status==='done'?'':'<button class="btn sm" data-action="rec-done" data-id="'+r.id+'">Mark done</button>')+'</div>').join('')+'</div></section>'+
+  '<section class="card panel"><div class="panel-h"><div><h2>Data subject requests</h2><p>People asking to see or delete their data. Deadlines are set by law.</p></div></div><div class="rows">'+
+  S.dsr.map((d)=>'<div class="row"><div class="row-main"><strong>'+esc(d.title)+'</strong><span class="small muted">'+(d.done?'Completed':d.meta)+'</span></div>'+(d.done?'<span class="pill ok">Done</span>':'<span class="pill '+(d.urgent?'bad':'warn')+'">Open</span><button class="btn sm" data-action="dsr-find" data-id="'+d.id+'">Find data</button><button class="btn sm" data-action="dsr-done" data-id="'+d.id+'">Mark done</button>')+'</div>').join('')+'</div></section></div>';
+}
+function viewPolicies(){
+ const body={rules:policyRules,custom:customView,audit:auditView,records:recordsView}[S.ptab]();
+ return '<header class="ph"><div><h1>Policies</h1><p class="sub">Rules for every agent, proof of what happened, and the paperwork behind it.</p></div></header><div class="toolbar">'+seg([['rules','Rules'],['custom','Custom rules'],['audit','Audit log'],['records','Records']],S.ptab,'p-tab')+'</div>'+body;
+}
+
+/* ---------- custom guardrails ---------- */
+const RACT=[['block','Block'],['mask','Mask'],['approve','Needs approval'],['note','Add a note']];
+const RPILL={block:['Block','bad'],mask:['Mask',''],approve:['Needs approval','warn'],note:['Add note','']};
+S.rules=[
+ {id:'g1',name:'No legal advice',match:'lawsuit, sue, legal advice',action:'block',message:'I cannot give legal advice. Please talk to a lawyer.',scope:'all',agents:[],sample:'Can I sue you over this late order?',on:true},
+ {id:'g2',name:'Hide customer numbers',match:'/KD-\\d{4,}/',action:'mask',message:'',scope:'all',agents:[],sample:'My customer number is KD-48213, where is my order?',on:true},
+ {id:'g3',name:'Discounts need approval',match:'discount, coupon, rebate',action:'approve',message:'A discount was requested. Please check the customer history.',scope:'selected',agents:['a1'],sample:'Can I get a discount on my next order?',on:true}
+];
+const rxEsc=(s)=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+function ruleRegex(r){
+ const m=(r.match||'').trim();if(!m)return null;
+ try{
+  const p=m.match(/^\/(.+)\/([a-z]*)$/i);
+  if(p)return new RegExp(p[1],p[2].replace(/[gi]/g,'')+'gi');
+  const w=m.split(',').map((x)=>x.trim()).filter(Boolean).map(rxEsc);
+  return w.length?new RegExp('\\b(?:'+w.join('|')+')\\b','gi'):null;
+ }catch(e){return null}
+}
+const appliesTo=(r,a)=>r.on&&r.version>0&&(r.scope==='all'||r.agents.indexOf(a.id)>-1);
+function customGuard(a,t){
+ const rules=S.rules.filter((r)=>appliesTo(r,a));
+ for(let i=0;i<rules.length;i++){
+  const r=rules[i],re=ruleRegex(r);if(!re||t.search(re)<0)continue;
+  const tr=[{i:'shield',n:r.name}];
+  if(r.action==='block'){logAudit(a.name,'Rule “'+r.name+'” blocked a message','Blocked');return {text:r.message||'I cannot help with that.',trace:tr}}
+  if(r.action==='approve'){logAudit(a.name,'Rule “'+r.name+'” is waiting for approval','Needs approval');return {text:(r.message||'This needs approval from a person first.')+'\n\nI will continue once it is approved.',trace:[{i:'shield',n:'Waiting for approval'}]}}
+  if(r.action==='mask'){logAudit(a.name,'Rule “'+r.name+'” hid text before processing','Masked');return {text:'I hid the matching text before processing: “'+t.replace(re,'[hidden]')+'”\n\nHow can I help with the rest?',trace:tr}}
+  if(r.action==='note'){logAudit(a.name,'Rule “'+r.name+'” added a note','Allowed');return {note:r.message||'',trace:tr}}
+ }
+ return null;
+}
+const ruleChips=(a)=>S.rules.filter((r)=>appliesTo(r,a)&&r.sample).map((r)=>'<button class="pchip g" data-action="rule-prompt" data-id="'+r.id+'">'+ic('shield',13)+' '+esc(r.name)+'</button>').join('');
+
+
+/* ---------- roles, versions and approval ---------- */
+const USERS=[
+ {id:'u1',name:'Mira Aydin',role:'Agent owner',desc:'Owns Support Concierge and Research Scout. Can propose rules for her own agents.',agents:['a1','a2'],e:4},
+ {id:'u2',name:'Jonas Weber',role:'Admin',desc:'Can change workspace rules and approve changes from others.',agents:[],e:1},
+ {id:'u3',name:'Sven Roth',role:'Admin',desc:'A second admin. Needed to approve Jonas’s changes.',agents:[],e:3}
+];
+S.me='u2';
+const me=()=>USERS.find((u)=>u.id===S.me);
+const isAdmin=()=>me().role==='Admin';
+const myAgents=()=>me().agents||[];
+const nowStr=()=>new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+const fieldsOf=(r)=>({name:r.name,match:r.match,action:r.action,message:r.message||'',scope:r.scope,agents:(r.agents||[]).slice(),sample:r.sample||''});
+const canEditRule=(r)=>isAdmin()||(r.scope==='selected'&&r.agents.length>0&&r.agents.every((id)=>myAgents().indexOf(id)>-1));
+(function seed(){
+ const H=(v,by,at,ap,note)=>({v:v,by:by,at:at,approver:ap,note:note,status:'approved'});
+ const g=(id)=>S.rules.find((r)=>r.id===id);
+ g('g1').version=2;g('g1').pending=null;g('g1').history=[H(2,'Sven Roth','14 Oct','Jonas Weber','Added “legal advice” as a keyword.'),H(1,'Jonas Weber','2 Oct','Sven Roth','Created.')];
+ g('g2').version=1;g('g2').pending=null;g('g2').history=[H(1,'Sven Roth','5 Oct','Jonas Weber','Created to protect customer numbers.')];
+ const r3=g('g3');r3.match='discount, coupon';r3.version=1;r3.history=[H(1,'Mira Aydin','9 Oct','Jonas Weber','Created for Support Concierge.')];
+ r3.pending={v:2,by:'Mira Aydin',byId:'u1',at:'Today 19:41',note:'Customers also ask for rebates.',fields:Object.assign(fieldsOf(r3),{match:'discount, coupon, rebate'})};
+})();
+
+const whoBtn=(c)=>{const u=me();return '<button class="who'+(c?' c':'')+'" data-action="who" aria-label="Switch person, now '+esc(u.name)+'"><span class="emb sm e'+u.e+'" aria-hidden="true">'+esc(initials(u.name))+'</span><span class="who-t"><strong>'+esc(u.name)+'</strong>'+(c?'':'<span>'+u.role+' · prototype</span>')+'</span>'+ic('chev',14)+'</button>'};
+const whoSheet=()=>shell('View as','Prototype only. Switch person to see what each role can do.','<div class="opts">'+USERS.map((u)=>opt('agents',u.name+' · '+u.role,u.desc,S.me===u.id,'set-who',u.id)).join('')+'</div>','');
+
+const FL=[['name','Name'],['match','Catches'],['action','Action'],['message','Message'],['scope','Applies to'],['agents','Agents']];
+const fv=(f,v)=>f==='action'?RPILL[v][0]:f==='scope'?(v==='all'?'All agents':'Selected agents'):f==='agents'?(v.length?v.map((id)=>{const a=agentById(id);return a?a.name:id}).join(', '):'None'):(v||'None');
+function diffRows(r){
+ const p=r.pending,isNew=r.version===0,out=[];
+ FL.forEach((f)=>{
+  const nv=p.fields[f[0]],ov=r[f[0]];
+  if(!isNew&&JSON.stringify(nv)===JSON.stringify(ov))return;
+  if(f[0]==='message'&&!nv&&!ov)return;
+  if(f[0]==='agents'&&p.fields.scope==='all'&&(isNew||r.scope==='all'))return;
+  out.push([f[1],isNew?null:fv(f[0],ov),fv(f[0],nv)]);
+ });
+ return out;
+}
+const historyHTML=(r)=>r.history.length?'<div><span class="lbl">Version history</span>'+r.history.map((h)=>'<div class="hrow"><strong>v'+h.v+'</strong> <span class="small muted">'+esc(h.by)+' · '+esc(h.at)+' · '+(h.status==='approved'?'approved':'rejected')+' by '+esc(h.approver)+'</span><p class="small">'+esc(h.note)+'</p></div>').join('')+'</div>':'';
+
+function newRuleSheet(id,agentId){
+ const r=id?S.rules.find((x)=>x.id===id):null;
+ const base=r?fieldsOf(r):{name:'',match:'',action:'block',message:'',scope:(agentId||!isAdmin())?'selected':'all',agents:agentId?[agentId]:[],sample:''};
+ return {type:'rule',id:id,draft:Object.assign(base,{note:''}),err:'',check:null,confirmDel:false,readonly:!!(r&&!canEditRule(r))};
+}
+function checkRule(d){
+ if(!d.match.trim())return {t:'Add words or a pattern first.'};
+ const re=ruleRegex(d);if(!re)return {t:'This pattern is not valid. Check the slashes and brackets.'};
+ if(!d.sample.trim())return {t:'Type a sample message to check.'};
+ if(d.sample.search(re)<0)return {t:'No match. The agent would answer normally.'};
+ const o={block:'The agent would reply: “'+(d.message||'I cannot help with that.')+'”',mask:'The agent would see: “'+d.sample.replace(re,'[hidden]')+'”',approve:'The agent would pause and wait for approval.',note:'The agent would answer and add: “Note: '+(d.message||'')+'”'}[d.action];
+ return {hit:true,t:'Match. '+o};
+}
+function saveRule(){
+ const sh=S.sheet,d=sh.draft;
+ if(!d.name.trim()){sh.err='Give the guardrail a name.';return render()}
+ if(!d.match.trim()||!ruleRegex(d)){sh.err='Add words or a valid pattern to catch.';return render()}
+ if(d.scope==='selected'&&!d.agents.length){sh.err='Pick at least one agent, or apply it to all agents.';return render()}
+ if(d.scope==='all'&&!isAdmin()){sh.err='Only admins can apply a rule to all agents.';return render()}
+ if(!d.note.trim()){sh.err='Add a short note so the approver knows why.';return render()}
+ d.name=d.name.trim();
+ const f=fieldsOf(d),pend=(v)=>({v:v,by:me().name,byId:S.me,at:'Today '+nowStr(),note:d.note.trim(),fields:f});
+ let r;
+ if(sh.id){r=S.rules.find((x)=>x.id===sh.id);r.pending=pend(r.version+1)}
+ else{r=Object.assign({id:uid('g'),on:true,version:0,history:[]},f);r.pending=pend(1);S.rules.push(r)}
+ logAudit('Workspace','Change to “'+d.name+'” proposed by '+me().name+' (v'+r.pending.v+')','Needs approval');
+ S.sheet=null;render();toast('Sent for approval');
+}
+function proposeChange(r,changes,note){
+ r.pending={v:r.version+1,by:me().name,byId:S.me,at:'Today '+nowStr(),note:note,fields:Object.assign(fieldsOf(r),changes)};
+ logAudit('Workspace','Change to “'+r.name+'” proposed by '+me().name+' (v'+r.pending.v+')','Needs approval');
+ toast('Sent for approval');
+}
+function dropPending(r){r.pending=null;if(r.version===0)S.rules=S.rules.filter((x)=>x.id!==r.id)}
+function approveRule(id){
+ const r=S.rules.find((x)=>x.id===id),p=r.pending;
+ if(!isAdmin())return toast('Only admins can approve changes');
+ if(p.byId===S.me)return toast('A second person has to approve your change');
+ Object.assign(r,p.fields,{agents:p.fields.agents.slice()});r.version=p.v;
+ r.history.unshift({v:p.v,by:p.by,at:p.at,approver:me().name,note:p.note,status:'approved'});r.pending=null;
+ logAudit('Workspace','Guardrail “'+r.name+'” v'+r.version+' approved by '+me().name,'Allowed');
+ S.sheet=null;render();toast(r.name+' v'+r.version+' is live');
+}
+function rejectRule(id){
+ const r=S.rules.find((x)=>x.id===id),p=r.pending;
+ if(!isAdmin()||p.byId===S.me)return toast('Only another admin can reject this change');
+ r.history.unshift({v:p.v,by:p.by,at:p.at,approver:me().name,note:p.note,status:'rejected'});
+ logAudit('Workspace','Change to “'+r.name+'” rejected by '+me().name,'Blocked');
+ dropPending(r);S.sheet=null;render();toast('Change rejected');
+}
+function withdrawRule(id){
+ const r=S.rules.find((x)=>x.id===id);dropPending(r);S.sheet=null;render();toast('Change withdrawn');
+}
+
+function ruleSheet(){
+ const sh=S.sheet,d=sh.draft,ro=sh.readonly,dis=ro?' disabled':'';
+ const rule=sh.id?S.rules.find((x)=>x.id===sh.id):null;
+ const ml={block:'What the agent says instead',approve:'What the approver sees',note:'Note added to the answer'}[d.action];
+ const own=(a)=>isAdmin()||myAgents().indexOf(a.id)>-1;
+ const body='<div class="sg">'+
+  (ro?lock('Read only. '+(isAdmin()?'':'You can only change rules for agents you own.')):'<p class="hint">You are proposing this as '+esc(me().name)+'. It goes live after '+(isAdmin()?'a second admin':'an admin')+' approves it.</p>')+
+  '<div class="field"><label for="rName">Name</label><input id="rName"'+dis+' maxlength="48" data-input="draft.name" placeholder="e.g. No legal advice" value="'+esc(d.name)+'"></div>'+
+  '<div class="field"><label for="rMatch">What should it catch?</label><input id="rMatch"'+dis+' data-input="draft.match" placeholder="lawsuit, sue, legal advice" value="'+esc(d.match)+'"><p class="hint">Words separated by commas, or a pattern between slashes such as /KD-\\d{4,}/.</p></div>'+
+  '<div class="field"><span class="lbl">When it matches</span>'+seg(RACT,d.action,'rule-action')+'</div>'+
+  (ml?'<div class="field"><label for="rMsg">'+ml+'</label><input id="rMsg"'+dis+' data-input="draft.message" value="'+esc(d.message)+'"></div>':'')+
+  '<div class="field"><span class="lbl">Applies to</span>'+(isAdmin()?seg([['all','All agents'],['selected','Selected agents']],d.scope,'rule-scope'):seg([['selected','Selected agents']],'selected','rule-scope')+lock('Only admins can apply a rule to all agents.'))+
+   (d.scope==='selected'?'<div class="tchips" style="margin-top:8px">'+S.agents.map((a)=>{const on=d.agents.indexOf(a.id)>-1;return '<button class="tchip '+(on?'on':'')+'" aria-pressed="'+on+'"'+(own(a)?'':' disabled title="You do not own this agent"')+' data-action="rule-agent" data-id="'+a.id+'">'+(on?ic('check',14):'')+esc(a.name)+'</button>'}).join('')+'</div>':'<p class="hint">Applies to every current and future agent.</p>')+'</div>'+
+  '<div class="field"><label for="rSample">Try it with a sample message</label><div style="display:flex;gap:8px"><input id="rSample" style="flex:1;min-width:0" data-input="draft.sample" placeholder="Type a message a customer might send" value="'+esc(d.sample)+'"><button class="btn" data-action="rule-check">Check</button></div>'+(sh.check?'<div class="result">'+esc(sh.check.t)+'</div>':'')+'</div>'+
+  (ro?'':'<div class="field"><label for="rNote">'+(sh.id?'What changed and why?':'Why is this guardrail needed?')+'</label><input id="rNote" data-input="draft.note" placeholder="e.g. Customers also ask for rebates" value="'+esc(d.note)+'"><p class="hint">Shown to the approver and kept in the version history.</p></div>')+
+  (sh.err?'<p class="err">'+sh.err+'</p>':'')+(rule?historyHTML(rule):'')+'</div>';
+ const foot=ro?'<button class="btn primary" data-action="close-sheet">Close</button>':(sh.id&&isAdmin()?'<button class="btn ghost" style="margin-right:auto;color:var(--bad)" data-action="rule-delete">'+(sh.confirmDel?'Click again to delete':'Delete')+'</button>':'')+'<button class="btn ghost" data-action="close-sheet">Cancel</button><button class="btn primary" data-action="rule-save">'+ic('check')+'Submit for approval</button>';
+ return shell(sh.id?'Edit guardrail':'New guardrail',rule?'Version '+rule.version+(rule.version?' is live':''):'Define a rule once, then apply it to any agent.',body,foot);
+}
+function reviewSheet(){
+ const r=S.rules.find((x)=>x.id===S.sheet.id),p=r.pending;
+ const rows=diffRows(r).map((x)=>'<div class="diff"><span class="lbl">'+x[0]+'</span><span>'+(x[1]!==null?'<s>'+esc(x[1])+'</s> → ':'')+'<strong>'+esc(x[2])+'</strong></span></div>').join('');
+ const own=p.byId===S.me;
+ let note,foot;
+ if(own){note=lock('You proposed this change. '+(isAdmin()?'A second admin':'An admin')+' has to approve it.');foot='<button class="btn ghost" data-action="close-sheet">Close</button><button class="btn" data-action="rule-withdraw" data-id="'+r.id+'">Withdraw</button>'}
+ else if(!isAdmin()){note=lock('Only admins can approve changes.');foot='<button class="btn primary" data-action="close-sheet">Close</button>'}
+ else{note='';foot='<button class="btn" data-action="rule-reject" data-id="'+r.id+'">Reject</button><button class="btn primary" data-action="rule-approve" data-id="'+r.id+'">'+ic('check')+'Approve v'+p.v+'</button>'}
+ const body='<div class="sg"><p class="small muted">Proposed by '+esc(p.by)+' · '+esc(p.at)+'</p><div class="quote">'+esc(p.note)+'</div>'+
+  '<div><span class="lbl">'+(r.version===0?'New guardrail':'What changes')+'</span><div class="rows" style="margin-top:8px">'+(rows||'<p class="hint">Only the sample message changed.</p>')+'</div></div>'+note+historyHTML(r)+'</div>';
+ return shell(r.version===0?'Review new guardrail':'Review change to “'+esc(r.name)+'”',r.version===0?'Not live until approved.':'Version '+r.version+' stays live until v'+p.v+' is approved.',body,foot);
+}
+function pickRuleSheet(){
+ const a=agentById(S.agentId);const sel=S.rules.filter((r)=>r.scope==='selected'&&r.version>0);
+ const body=sel.length?'<div class="opts">'+sel.map((r)=>opt('shield',r.name,RPILL[r.action][0]+' · catches '+r.match+(r.pending?' · change pending':''),r.agents.indexOf(a.id)>-1,'toggle-rule-agent',r.id)).join('')+'</div><p class="hint" style="margin-top:12px">Adding or removing an agent is a change. It needs approval before it takes effect.</p>':'<p class="rowempty">No guardrails for selected agents yet. Create one to get started.</p>';
+ return shell('Add guardrails','Rules for all agents are managed under Policies. Choose rules for '+esc(a.name)+'.',body,'<button class="btn ghost" data-action="new-rule-for-agent">New guardrail</button><button class="btn primary" data-action="close-sheet">Done</button>');
+}
+const rulePills=(r)=>(r.version===0?'<span class="pill warn">Not live yet</span>':(r.on?'':'<span class="pill">Off</span>'))+(r.pending&&r.version>0?'<span class="pill warn">Change pending</span>':'');
+function customPanel(a){
+ const mine=S.rules.filter((r)=>r.scope==='all'||r.agents.indexOf(a.id)>-1);
+ const rows=mine.map((r)=>'<div class="row cr"><span class="ico">'+ic('shield')+'</span><div class="row-main"><button class="linkish" data-action="edit-rule" data-id="'+r.id+'">'+esc(r.name)+'</button><span class="small muted">v'+r.version+' · catches '+esc(r.match)+'</span></div>'+rulePills(r)+'<span class="pill '+RPILL[r.action][1]+'">'+RPILL[r.action][0]+'</span>'+(r.scope==='all'?'<span class="pill">All agents</span>':(canEditRule(r)?'<button class="iconbtn" aria-label="Remove '+esc(r.name)+' from this agent" data-action="unassign-rule" data-id="'+r.id+'">'+ic('close',16)+'</button>':''))+'</div>').join('');
+ return '<section class="card panel"><div class="panel-h"><div><h2>Custom guardrails</h2><p>Your own rules for words, topics and patterns.</p></div><button class="btn sm" data-action="pick-rule">'+ic('plus',16)+'Add guardrail</button></div><div class="rows">'+(rows||'<div class="rowempty">No custom guardrails. Add one to block a topic, hide a pattern or require approval.</div>')+'</div></section>';
+}
+function customView(){
+ const pend=S.rules.filter((r)=>r.pending);
+ const ap=pend.length?'<section class="card panel"><div class="panel-h"><div><h2>Waiting for approval</h2><p>Changes go live only after a second person approves them.</p></div></div><div class="rows">'+pend.map((r)=>'<div class="row cr"><div class="row-main"><strong>'+esc(r.name)+'</strong><span class="small muted">v'+r.pending.v+' proposed by '+esc(r.pending.by)+' · '+esc(r.pending.at)+'</span></div><button class="btn sm primary" data-action="edit-rule" data-id="'+r.id+'">Review</button></div>').join('')+'</div></section>':'';
+ const rows=S.rules.map((r)=>'<div class="row cr"><span class="ico">'+ic('shield')+'</span><div class="row-main"><button class="linkish" data-action="edit-rule" data-id="'+r.id+'">'+esc(r.name)+'</button><span class="small muted">v'+r.version+' · '+(r.scope==='all'?'All agents':plural(r.agents.length,'agent'))+' · catches '+esc(r.match)+'</span></div>'+rulePills(r)+'<span class="pill '+RPILL[r.action][1]+'">'+RPILL[r.action][0]+'</span><button class="switch" role="switch" aria-checked="'+r.on+'" aria-label="Turn '+esc(r.name)+' on or off"'+(isAdmin()?' data-action="toggle-rule" data-id="'+r.id+'"':' disabled title="Only admins can turn rules on or off"')+'></button></div>').join('');
+ return '<div class="col">'+ap+'<section class="card panel"><div class="panel-h"><div><h2>Custom guardrails</h2><p>Your own rules for words, topics and patterns. Every change is versioned and needs a second person’s approval.</p></div><button class="btn primary sm" data-action="new-rule">'+ic('plus',16)+'New guardrail</button></div>'+(isAdmin()?'':lock('As an agent owner you can propose rules for your own agents.'))+'<div class="rows">'+(rows||'<div class="rowempty">No custom guardrails yet. Create one to block a topic, hide a pattern or require approval.</div>')+'</div></section></div>';
+}
+
+/* ---------- sheets ---------- */
+function shell(title,sub,body,foot){
+ return '<div class="scrim" data-action="close-sheet"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><header class="sheet-h"><div><h2>'+title+'</h2>'+(sub?'<p class="small muted">'+sub+'</p>':'')+'</div><button class="iconbtn" aria-label="Close" data-action="close-sheet">'+ic('close')+'</button></header><div class="sheet-body">'+body+'</div>'+(foot?'<footer class="sheet-f">'+foot+'</footer>':'')+'</section>';
+}
+function sheetHTML(){
+ const sh=S.sheet;
+ if(sh.type==='who')return whoSheet();
+ if(sh.type==='review')return reviewSheet();
+ if(sh.type==='rule')return ruleSheet();
+ if(sh.type==='pickRule')return pickRuleSheet();
+ if(sh.type==='newAgent'){
+  const d=sh.draft;const st=sh.step;let body='';
+  const bar='<div class="steps" aria-hidden="true">'+[1,2,3].map((i)=>'<i class="'+(i<=st?'on':'')+'"></i>').join('')+'</div>';
+  if(st===1)body='<div class="sg"><div><span class="lbl">Start from</span><div class="tpls">'+TPLS.map((t)=>'<button class="tpl '+(d.tpl===t.id?'on':'')+'" data-action="draft-tpl" data-id="'+t.id+'"><strong>'+t.label+'</strong><span>'+t.hint+'</span></button>').join('')+'</div></div>'+
+   '<div class="field"><label for="dName">Name</label><input id="dName" maxlength="40" data-input="draft.name" placeholder="e.g. Support Concierge" value="'+esc(d.name)+'">'+(d.err?'<p class="err">'+d.err+'</p>':'')+'</div>'+
+   '<div class="field"><label for="dRole">What is its job?</label><input id="dRole" data-input="draft.role" placeholder="One sentence is enough" value="'+esc(d.role)+'"></div></div>';
+  if(st===2)body='<div class="opts">'+S.sources.map((s)=>opt(KINDS[s.kind].icon,s.name,srcMeta(s),d.sources.indexOf(s.id)>-1,'draft-source',s.id)).join('')+'</div>';
+  if(st===3)body='<div class="opts">'+S.skills.map((s)=>opt('skills',s.name,s.type+' · '+s.desc,d.skills.indexOf(s.id)>-1,'draft-skill',s.id)).join('')+'</div>';
+  const sub=['Name and job','Which data may it read?','Which skills should it have?'][st-1];
+  const foot=(st===1?'<button class="btn ghost" data-action="close-sheet">Cancel</button>':'<button class="btn ghost" data-action="draft-back">Back</button>')+(st<3?'<button class="btn primary" data-action="draft-next">Next</button>':'<button class="btn primary" data-action="create-agent">'+ic('check')+'Create agent</button>');
+  return shell('New agent','Step '+st+' of 3 · '+sub,bar+body,foot);
+ }
+ if(sh.type==='pickSkill'||sh.type==='pickSource'){
+  const a=agentById(S.agentId);const isS=sh.type==='pickSkill';
+  const body='<div class="opts">'+(isS?S.skills.map((s)=>opt('skills',s.name,s.type+' · '+s.desc,a.skills.indexOf(s.id)>-1,'toggle-skill',s.id)):S.sources.map((s)=>opt(KINDS[s.kind].icon,s.name,srcMeta(s),a.sources.indexOf(s.id)>-1,'toggle-source',s.id))).join('')+'</div>';
+  const foot=(isS?'<button class="btn ghost" data-action="new-skill">New skill</button>':'<button class="btn ghost" data-action="connect-for-agent">Connect new source</button>')+'<button class="btn primary" data-action="close-sheet">Done</button>';
+  return shell(isS?'Add skills':'Add data sources','Tap to attach or remove. Changes apply to '+esc(a.name)+'.',body,foot);
+ }
+ if(sh.type==='connect'){
+  if(sh.step===1)return shell('Connect a source','Where does the data live?','<div class="kinds">'+Object.keys(KINDS).map((k)=>'<button class="kind" data-action="connect-kind" data-v="'+k+'"><span class="ico">'+ic(KINDS[k].icon)+'</span><strong>'+KINDS[k].label+'</strong><span>'+KINDS[k].hint+'</span></button>').join('')+'</div>','');
+  const k=KINDS[sh.kind];
+  return shell('Connect '+k.label.toLowerCase(),k.hint,'<div class="sg"><div class="field"><label for="cName">Name</label><input id="cName" data-input="conn.name" maxlength="40" placeholder="e.g. Partner FAQ" value="'+esc(sh.name)+'">'+(sh.err?'<p class="err">'+sh.err+'</p>':'')+'</div><div class="field"><label for="cLoc">Where is it?</label><input id="cLoc" data-input="conn.loc" placeholder="'+esc(k.ph)+'" value="'+esc(sh.loc)+'"><p class="hint">The agent gets read-only access. It never changes your data.</p></div></div>','<button class="btn ghost" data-action="connect-back">Back</button><button class="btn primary" data-action="connect-submit">'+ic('check')+'Connect</button>');
+ }
+ if(sh.type==='newSkill')return shell('New skill','Start from a template or from scratch.','<div class="tpls" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">'+STPL.map((t)=>'<button class="tpl" data-action="create-skill" data-id="'+t.id+'"><strong>'+t.label+'</strong><span>'+t.hint+'</span></button>').join('')+'</div>','');
+ return '';
+}
+
+/* ---------- render ---------- */
+function render(){
+ const sb=$('.sheet-body');const st=sb?sb.scrollTop:0;
+ $('#mtop').innerHTML='<div class="brand">'+LOGO+'<span>Foreman</span></div>'+whoBtn(true);
+ $('#rail').innerHTML=railHTML();
+ $('#tabbar').innerHTML=tabHTML();
+ const v={agents:viewAgents,agent:viewAgent,skills:viewSkills,skill:viewSkill,sources:viewSources,policies:viewPolicies}[S.view];
+ $('#main').innerHTML=v();
+ $('#sheetHost').innerHTML=S.sheet?sheetHTML():'';
+ document.body.style.overflow=S.sheet?'hidden':'';
+ const nb=$('.sheet-body');if(nb)nb.scrollTop=st;
+ const m=$('#msgs');if(m)m.scrollTop=m.scrollHeight;
+}
+let tt=null;
+function toast(msg){
+ const t=$('#toast');t.innerHTML=ic('check',16)+esc(msg);t.classList.add('show');
+ clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2200);
+}
+function go(view,id){
+ S.view=view;S.tab='config';S.sheet=null;
+ if(view==='agent')S.agentId=id;
+ if(view==='skill'){S.skillId=id;const s=skillById(id);S.tryIn=s.ex.in;S.tryState='idle'}
+ window.scrollTo(0,0);render();
+}
+const toggle=(arr,id)=>{const i=arr.indexOf(id);i>-1?arr.splice(i,1):arr.push(id)};
+
+/* ---------- actions ---------- */
+function act(a,d){
+ const ag=S.agentId?agentById(S.agentId):null;
+ const sk=S.skillId?skillById(S.skillId):null;
+ if(S.sheet&&S.sheet.readonly&&/^rule-/.test(a)&&a!=='rule-check')return;
+ switch(a){
+  case 'open-guard':go('agent',d.id);S.tab='guard';return render();
+  case 'g-pii':case 'g-special':case 'g-region':case 'g-ret':case 'g-limit':ag.guard[GKEY[a]]=d.v;return render();
+  case 'toggle-appr':toggle(ag.guard.approvals,d.v);return render();
+  case 'toggle-guard':ag.guard[d.v]=!ag.guard[d.v];return render();
+  case 'fix':{const c=CTRL.find((x)=>x.k===d.v);if(c.fix){c.fix(ag.guard);render();return toast('Guardrail turned on')}render();const pe=$('#gPurpose');if(pe)pe.focus();return}
+  case 'guard-prompt':return sendChat(GTESTS[+d.i][0]);
+  case 'p-tab':S.ptab=d.v;return render();
+  case 'p-ret':if(!isAdmin())return toast('Only admins can change workspace rules');S.policy.retention=d.v;return render();
+  case 'p-toggle':{if(!isAdmin())return toast('Only admins can change workspace rules');S.policy[d.v]=!S.policy[d.v];let n=0;if(S.policy[d.v]){S.agents.forEach((x)=>{const g=x.guard;if(d.v==='pii'&&g.pii==='allow'){g.pii='mask';n++}if(d.v==='special'&&g.special==='allow'){g.special='block';n++}if(d.v==='eu'&&g.region!=='eu'){g.region='eu';n++}})}render();return toast(n?plural(n,'agent')+' adjusted':'Rule updated')}
+  case 'audit-filter':S.auditFilter=d.v;return render();
+  case 'export-log':return toast('Prototype: export is not connected');
+  case 'rec-done':{S.records.find((r)=>r.id===d.id).status='done';render();return toast('Marked as done')}
+  case 'dsr-find':return toast('Prototype: would search all '+S.sources.length+' sources');
+  case 'dsr-done':{S.dsr.find((r)=>r.id===d.id).done=true;render();return toast('Request completed')}
+  case 'new-rule':S.sheet=newRuleSheet(null,null);return render();
+  case 'new-rule-for-agent':S.sheet=newRuleSheet(null,S.agentId);return render();
+  case 'edit-rule':{const r=S.rules.find((x)=>x.id===d.id);S.sheet=r.pending?{type:'review',id:r.id}:newRuleSheet(r.id,null);return render()}
+  case 'toggle-rule':{if(!isAdmin())return toast('Only admins can turn rules on or off');const r=S.rules.find((x)=>x.id===d.id);r.on=!r.on;logAudit('Workspace','Guardrail \u201c'+r.name+'\u201d turned '+(r.on?'on':'off')+' by '+me().name,'Allowed');render();return toast(r.name+(r.on?' is on':' is off'))}
+  case 'rule-action':S.sheet.draft.action=d.v;S.sheet.check=null;return render();
+  case 'rule-scope':S.sheet.draft.scope=d.v;return render();
+  case 'rule-agent':toggle(S.sheet.draft.agents,d.id);return render();
+  case 'rule-check':S.sheet.check=checkRule(S.sheet.draft);return render();
+  case 'rule-save':return saveRule();
+  case 'rule-delete':{if(!S.sheet.confirmDel){S.sheet.confirmDel=true;return render()}const r=S.rules.find((x)=>x.id===S.sheet.id);S.rules=S.rules.filter((x)=>x.id!==r.id);logAudit('Workspace','Guardrail \u201c'+r.name+'\u201d deleted by '+me().name,'Allowed');S.sheet=null;render();return toast('Guardrail deleted')}
+  case 'pick-rule':S.sheet={type:'pickRule'};return render();
+  case 'toggle-rule-agent':{const r=S.rules.find((x)=>x.id===d.id);if(r.pending)return toast('This rule already has a change waiting for approval');if(!isAdmin()&&myAgents().indexOf(ag.id)<0)return toast('You can only change rules for agents you own');const has=r.agents.indexOf(ag.id)>-1;proposeChange(r,{agents:has?r.agents.filter((x)=>x!==ag.id):r.agents.concat(ag.id)},(has?'Removed from ':'Applied to ')+ag.name);return render()}
+  case 'unassign-rule':{const r=S.rules.find((x)=>x.id===d.id);if(r.pending)return toast('This rule already has a change waiting for approval');proposeChange(r,{agents:r.agents.filter((x)=>x!==ag.id)},'Removed from '+ag.name);return render()}
+  case 'rule-approve':return approveRule(d.id);
+  case 'rule-reject':return rejectRule(d.id);
+  case 'rule-withdraw':return withdrawRule(d.id);
+  case 'who':S.sheet={type:'who'};return render();
+  case 'set-who':S.me=d.id;S.sheet=null;render();return toast('Viewing as '+me().name);
+  case 'rule-prompt':return sendChat(S.rules.find((x)=>x.id===d.id).sample);
+  case 'nav':return go(d.view);
+  case 'open-agent':return go('agent',d.id);
+  case 'open-skill':return go('skill',d.id);
+  case 'tab':S.tab=d.v;return render();
+  case 'hide-banner':S.bannerHidden=true;return render();
+  case 'filter-agents':S.agentFilter=d.v;return render();
+  case 'filter-skills':S.skillFilter=d.v;return render();
+  case 'toggle-status':{const x=agentById(d.id);x.status=x.status==='active'?'paused':'active';render();return toast(x.name+(x.status==='active'?' is active':' is paused'))}
+  case 'save-agent':return toast('Changes saved');
+  case 'set-autonomy':ag.autonomy=d.v;return render();
+  case 'reset-chat':delete S.chats[ag.id];return render();
+  case 'prompt':return sendChat(ag.prompts[+d.i],+d.i);
+  case 'pick-skill':S.sheet={type:'pickSkill'};return render();
+  case 'pick-source':S.sheet={type:'pickSource'};return render();
+  case 'toggle-skill':toggle(ag.skills,d.id);return render();
+  case 'toggle-source':toggle(ag.sources,d.id);return render();
+  case 'remove-skill':toggle(ag.skills,d.id);return render();
+  case 'remove-source':toggle(ag.sources,d.id);return render();
+  case 'close-sheet':S.sheet=null;return render();
+  case 'new-agent':S.sheet={type:'newAgent',step:1,draft:{tpl:null,name:'',role:'',skills:[],sources:[]}};return render();
+  case 'draft-tpl':{const t=TPLS.find((x)=>x.id===d.id),dr=S.sheet.draft;dr.tpl=t.id;dr.name=t.name;dr.role=t.role;dr.skills=t.skills.slice();dr.sources=t.sources.slice();dr.err='';return render()}
+  case 'draft-next':{const dr=S.sheet.draft;if(S.sheet.step===1&&!dr.name.trim()){dr.err='Give your agent a name.';return render()}S.sheet.step++;return render()}
+  case 'draft-back':S.sheet.step--;return render();
+  case 'draft-source':toggle(S.sheet.draft.sources,d.id);return render();
+  case 'draft-skill':toggle(S.sheet.draft.skills,d.id);return render();
+  case 'create-agent':{
+   const dr=S.sheet.draft,name=dr.name.trim(),role=dr.role.trim()||'New agent';
+   const n={id:uid('a'),name:name,role:role,emblem:(S.agents.length%4)+1,status:'active',autonomy:'ask',model:'balanced',skills:dr.skills.slice(),sources:dr.sources.slice(),lastRun:'never',runs:0,instructions:'You are '+name+'. '+role,prompts:['What can you help me with?'],guard:defaultGuard(role)};
+   S.agents.push(n);go('agent',n.id);return toast('Agent created');
+  }
+  case 'connect':S.sheet={type:'connect',step:1,kind:null,name:'',loc:'',assign:null};return render();
+  case 'connect-for-agent':S.sheet={type:'connect',step:1,kind:null,name:'',loc:'',assign:S.agentId};return render();
+  case 'connect-kind':S.sheet.kind=d.v;S.sheet.step=2;return render();
+  case 'connect-back':S.sheet.step=1;return render();
+  case 'connect-submit':{
+   const c=S.sheet;if(!c.name.trim()){c.err='Give this source a name.';return render()}
+   const k=KINDS[c.kind];const n={id:uid('src'),name:c.name.trim(),kind:c.kind,detail:c.loc.trim()||k.ph,count:20+Math.floor(Math.random()*380),synced:'just now',syncing:true};
+   S.sources.push(n);if(c.assign&&agentById(c.assign))agentById(c.assign).sources.push(n.id);
+   S.sheet=null;render();toast(n.name+' connected');
+   setTimeout(()=>{n.syncing=false;if(S.view==='sources'||S.view==='agent')render()},1600);return;
+  }
+  case 'sync':{const s=srcById(d.id);s.syncing=true;s.stale=false;render();setTimeout(()=>{s.syncing=false;s.synced='just now';if(S.view==='sources')render()},1500);return}
+  case 'new-skill':S.sheet={type:'newSkill'};return render();
+  case 'create-skill':{
+   const t=STPL.find((x)=>x.id===d.id).v;const n=JSON.parse(JSON.stringify(t));n.id=uid('s');n.version=1;
+   S.skills.push(n);const back=S.agentId&&S.view==='agent'?agentById(S.agentId):null;
+   if(back)back.skills.push(n.id);go('skill',n.id);return toast('Skill created');
+  }
+  case 'set-type':sk.type=d.v;return render();
+  case 'set-output':sk.output=d.v;return render();
+  case 'toggle-tool':toggle(sk.tools,d.v);return render();
+  case 'save-skill':sk.version++;render();return toast('Skill saved');
+  case 'run-skill':S.tryState='running';render();setTimeout(()=>{S.tryState='done';if(S.view==='skill')render()},900);return;
+ }
+}
+document.addEventListener('click',(e)=>{
+ const el=e.target.closest('[data-action]');if(!el||el.disabled)return;
+ act(el.dataset.action,el.dataset);
+});
+document.addEventListener('keydown',(e)=>{
+ if(e.key==='Escape'&&S.sheet){S.sheet=null;render();return}
+ if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.card[data-action]')){e.preventDefault();e.target.click()}
+});
+document.addEventListener('input',(e)=>{
+ const t=e.target,k=t.dataset&&t.dataset.input;if(!k)return;
+ if(k==='agentQuery'){S.agentQuery=t.value;$('#agentGrid').innerHTML=agentGrid();return}
+ if(k==='skillQuery'){S.skillQuery=t.value;$('#skillGrid').innerHTML=skillGrid();return}
+ if(k==='tryIn'){S.tryIn=t.value;return}
+ const p=k.split('.');
+ if(p[0]==='agent'){agentById(S.agentId)[p[1]]=t.value;if(p[1]==='name'){const e1=$('.ah .emb');if(e1)e1.textContent=initials(t.value)}}
+ if(p[0]==='skill')skillById(S.skillId)[p[1]]=t.value;
+ if(p[0]==='guard')agentById(S.agentId).guard[p[1]]=t.value;
+ if(p[0]==='draft')S.sheet.draft[p[1]]=t.value;
+ if(p[0]==='conn')S.sheet[p[1]]=t.value;
+});
+document.addEventListener('submit',(e)=>{
+ if(e.target.id==='chatForm'){e.preventDefault();const i=$('#chatInput');const v=i.value;i.value='';sendChat(v)}
+});
+render();
+})();
+</script>
