@@ -20,8 +20,43 @@ jobs:
       - name: Build and test
         run: mvn -B verify
 
+  test-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: agenticpilot
+          POSTGRES_USER: agenticpilot
+          POSTGRES_PASSWORD: ci-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U agenticpilot" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - name: Tests against PostgreSQL
+        run: >-
+          mvn -B test
+          -Dspring.datasource.url=jdbc:postgresql://localhost:5432/agenticpilot
+          -Dspring.datasource.username=agenticpilot
+          -Dspring.datasource.password=ci-only
+
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render Kubernetes manifests
+        run: |
+          kubectl kustomize deploy/k8s/overlays/test > /dev/null
+          kubectl kustomize deploy/k8s/overlays/production > /dev/null
+
   image:
-    needs: test
+    needs: [test, test-postgres, manifests]
     runs-on: ubuntu-latest
     permissions:
       contents: read

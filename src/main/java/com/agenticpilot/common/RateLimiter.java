@@ -1,4 +1,4 @@
-package com.agenticpilot.api;
+package com.agenticpilot.common;
 
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -22,7 +22,7 @@ public final class RateLimiter {
         this(perMinute, System::nanoTime);
     }
 
-    RateLimiter(int perMinute, java.util.function.LongSupplier clock) {
+    public RateLimiter(int perMinute, java.util.function.LongSupplier clock) {
         this.perMinute = Math.max(1, perMinute);
         this.clock = clock;
     }

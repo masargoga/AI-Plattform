@@ -1,5 +1,6 @@
 package com.agenticpilot.api;
 
+import com.agenticpilot.common.RateLimiter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -51,7 +52,21 @@ final class ApiAuthenticationFilter extends OncePerRequestFilter {
         String requestId = UUID.randomUUID().toString();
         request.setAttribute(REQUEST_ID, requestId);
         response.setHeader("X-Request-Id", requestId);
+        org.slf4j.MDC.put("requestId", requestId);
+        try {
+            authenticateAndProceed(request, response, chain, requestId);
+        } finally {
+            org.slf4j.MDC.remove("requestId");
+        }
+    }
 
+    private void authenticateAndProceed(HttpServletRequest request, HttpServletResponse response, FilterChain chain, String requestId)
+            throws ServletException, IOException {
+
+        if (request.getContentLengthLong() < 0 && request.getHeader("Transfer-Encoding") != null) {
+            ApiErrorWriter.write(request, response, 411, "length_required", "Send a Content-Length header; chunked bodies are not accepted.");
+            return;
+        }
         if (request.getContentLengthLong() > maxBodyBytes) {
             ApiErrorWriter.write(request, response, 413, "payload_too_large", "The request body is too large.");
             return;

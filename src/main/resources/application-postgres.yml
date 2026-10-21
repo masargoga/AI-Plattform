@@ -1,0 +1,27 @@
+# PostgreSQL profile for production-like deployments: SPRING_PROFILES_ACTIVE=postgres
+spring:
+  datasource:
+    url: ${AGENTICPILOT_DB_URL:jdbc:postgresql://localhost:5432/agenticpilot}
+    username: ${AGENTICPILOT_DB_USER:agenticpilot}
+    password: ${AGENTICPILOT_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${AGENTICPILOT_DB_POOL_SIZE:10}
+      connection-timeout: 10000
+
+# Behind a TLS-terminating proxy or ingress
+server:
+  forward-headers-strategy: framework
+
+agenticpilot:
+  auth:
+    secure-cookies: ${AGENTICPILOT_SECURE_COOKIES:true}
+
+# One JSON object per line, ready for log collectors
+logging:
+  structured:
+    format:
+      console: ecs
+
+springdoc:
+  api-docs:
+    enabled: ${AGENTICPILOT_API_DOCS_ENABLED:true}

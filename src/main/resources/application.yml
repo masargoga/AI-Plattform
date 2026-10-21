@@ -1,4 +1,6 @@
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: ${AGENTICPILOT_SHUTDOWN_TIMEOUT:30s}
   application:
     name: agenticpilot
   profiles:
@@ -16,6 +18,9 @@ agenticpilot:
   website:
     max-pages: ${AGENTICPILOT_WEBSITE_MAX_PAGES:50}
     request-delay: ${AGENTICPILOT_WEBSITE_REQUEST_DELAY:1s}
+  auth:
+    secure-cookies: ${AGENTICPILOT_SECURE_COOKIES:false}
+    remember-me-hours: ${AGENTICPILOT_SESSION_HOURS:12}
   api:
     rate-limit-per-minute: ${AGENTICPILOT_API_RATE_LIMIT:60}
   model:
@@ -37,6 +42,9 @@ springdoc:
     enabled: false
 
 management:
+  server:
+    # Unset: metrics and probes share the application port. Set (e.g. 8081) to keep them off the public port.
+    port: ${AGENTICPILOT_MANAGEMENT_PORT:}
   endpoints:
     web:
       exposure:
@@ -52,6 +60,17 @@ management:
 server:
   port: 8080
   shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${AGENTICPILOT_SECURE_COOKIES:false}
 
 vaadin:
   allowed-packages: com.vaadin,org.vaadin,com.agenticpilot

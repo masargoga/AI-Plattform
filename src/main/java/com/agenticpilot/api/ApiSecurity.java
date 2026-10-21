@@ -1,5 +1,6 @@
 package com.agenticpilot.api;
 
+import com.agenticpilot.common.RateLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;

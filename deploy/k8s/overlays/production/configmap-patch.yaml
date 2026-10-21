@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agenticpilot-config
+data:
+  SPRING_PROFILES_ACTIVE: postgres
+  # Replace with your database. The user and password come from the Secret (AGENTICPILOT_DB_USER, AGENTICPILOT_DB_PASSWORD).
+  AGENTICPILOT_DB_URL: jdbc:postgresql://postgres.agenticpilot.svc:5432/agenticpilot
+  AGENTICPILOT_DB_POOL_SIZE: "10"
+  AGENTICPILOT_MANAGEMENT_PORT: "8081"
+  AGENTICPILOT_SECURE_COOKIES: "true"
+  # Per replica; with two replicas a key may reach twice this rate
+  AGENTICPILOT_API_RATE_LIMIT: "60"

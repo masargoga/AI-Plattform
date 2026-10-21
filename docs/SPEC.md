@@ -366,13 +366,13 @@ Manifests live in the repository under `deploy/k8s` as a Kustomize base plus ove
 | ConfigMap | Non-secret settings |
 | Secret | Model API key, database password, seed password |
 | PersistentVolumeClaim | H2 database file and uploads in the test setup |
-| PostgreSQL (later) | Replaces the volume for production |
-| HorizontalPodAutoscaler (later) | Needs PostgreSQL and session replication |
+| PostgreSQL | Replaces the volume in the production overlay |
+| HorizontalPodAutoscaler | Production overlay (needs PostgreSQL) |
 
 ### Scaling path
 
 1. **Test:** one replica, H2 file on a volume. No high availability. Data is lost if the volume is lost.
-2. **Production:** PostgreSQL and two or more replicas. Vaadin keeps sessions in server memory, so use sticky sessions, or add the Vaadin Kubernetes Kit with Hazelcast or Redis for session replication so rolling updates and failover keep users signed in.
+2. **Production:** PostgreSQL and two or more replicas. Vaadin keeps its UI state in server memory. **Decided (M5): sticky sessions plus a shared sign-in in PostgreSQL** (persistent remember-me tokens). A lost replica reloads open pages but the user stays signed in; the Vaadin Kubernetes Kit was not chosen to avoid a cache cluster. See `docs/RUNBOOK.md`.
 3. Background jobs (source sync, retention) run on one replica at a time, guarded by a database lock.
 
 ## Milestones and tests

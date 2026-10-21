@@ -72,6 +72,11 @@ public class AppUser {
         return role;
     }
 
+    public void changePasswordHash(String newHash) {
+        this.passwordHash = newHash;
+        this.updatedAt = Instant.now();
+    }
+
     public boolean isAdmin() {
         return role == Role.ADMIN;
     }

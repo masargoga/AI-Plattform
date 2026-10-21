@@ -1,0 +1,84 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: agenticpilot
+resources:
+  - ../../base
+  - poddisruptionbudget.yaml
+  - hpa.yaml
+  - networkpolicy.yaml
+# Optional, for clusters without a managed PostgreSQL (see components/postgres-example/README in deploy/k8s/README.md):
+# components:
+#   - ../../components/postgres-example
+# Pin the image tag to the commit id built by CI:
+# images:
+#   - name: ghcr.io/masargoga/ai-plattform
+#     newTag: <commit-sha>
+patches:
+  - path: configmap-patch.yaml
+  - target: {kind: PersistentVolumeClaim, name: agenticpilot-data}
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: agenticpilot-data
+  - target: {kind: Deployment, name: agenticpilot}
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+      - op: replace
+        path: /spec/strategy
+        value:
+          type: RollingUpdate
+          rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+      - op: add
+        path: /spec/minReadySeconds
+        value: 10
+      - op: add
+        path: /spec/template/metadata/annotations
+        value:
+          prometheus.io/scrape: "true"
+          prometheus.io/port: "8081"
+          prometheus.io/path: /actuator/prometheus
+      # Finish running requests and streams, and give the ingress time to stop sending traffic, before the process stops
+      - op: add
+        path: /spec/template/spec/terminationGracePeriodSeconds
+        value: 60
+      - op: add
+        path: /spec/template/spec/containers/0/lifecycle
+        value:
+          preStop:
+            exec: {command: ["sleep", "10"]}
+      - op: add
+        path: /spec/template/spec/containers/0/ports/-
+        value: {name: management, containerPort: 8081}
+      - op: replace
+        path: /spec/template/spec/containers/0/startupProbe/httpGet/port
+        value: management
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/httpGet/port
+        value: management
+      - op: replace
+        path: /spec/template/spec/containers/0/readinessProbe/httpGet/port
+        value: management
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests: {cpu: 500m, memory: 1Gi}
+          limits: {memory: 1Gi}
+      - op: add
+        path: /spec/template/spec/containers/0/securityContext/readOnlyRootFilesystem
+        value: true
+      # No file database any more: remove the data volume and its mount
+      - op: remove
+        path: /spec/template/spec/volumes/0
+      - op: remove
+        path: /spec/template/spec/containers/0/volumeMounts/0
+      - op: add
+        path: /spec/template/spec/topologySpreadConstraints
+        value:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector: {matchLabels: {app: agenticpilot}}

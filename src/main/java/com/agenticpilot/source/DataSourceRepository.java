@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface DataSourceRepository extends JpaRepository<DataSource, UUID> {
 
     List<DataSource> findAllByOrderByName();
+
+    List<DataSource> findByStatusAndUpdatedAtBefore(SyncStatus status, java.time.Instant cutoff);
 }

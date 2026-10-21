@@ -1,5 +1,7 @@
 package com.agenticpilot.api;
 
+import com.agenticpilot.common.RateLimiter;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.concurrent.atomic.AtomicLong;

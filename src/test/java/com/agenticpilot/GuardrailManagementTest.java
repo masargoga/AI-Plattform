@@ -141,7 +141,7 @@ class GuardrailManagementTest {
         UUID adminId = jdbc.queryForObject("select id from app_user where username = 'admin'", UUID.class);
         assertThatThrownBy(() -> jdbc.update("""
                 insert into rule_version (id, rule_id, version_number, snapshot, author_id, note, status, pending_flag, created_at, updated_at)
-                values (random_uuid(), ?, 2, '{}', ?, 'x', 'PENDING', 1, current_timestamp, current_timestamp)""", rule.getId(), adminId))
+                values (?, ?, 2, '{}', ?, 'x', 'PENDING', 1, current_timestamp, current_timestamp)""", UUID.randomUUID(), rule.getId(), adminId))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 

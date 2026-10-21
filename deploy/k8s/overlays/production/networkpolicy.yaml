@@ -1,0 +1,44 @@
+# Default deny for the app pods, then only what the app needs. Needs a CNI that enforces NetworkPolicy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agenticpilot
+spec:
+  podSelector:
+    matchLabels: {app: agenticpilot}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # Users and API clients, through the ingress controller only
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: ingress-nginx}
+      ports:
+        - {port: 8080, protocol: TCP}
+    # Metrics and probes: monitoring namespace (probes from the kubelet are not affected by NetworkPolicy)
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitoring}
+      ports:
+        - {port: 8081, protocol: TCP}
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports:
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+    # PostgreSQL inside the namespace. For a managed database outside the cluster add its address range here.
+    - to:
+        - podSelector:
+            matchLabels: {app: postgres}
+      ports:
+        - {port: 5432, protocol: TCP}
+    # Model provider and websites for the website connector: HTTPS to the internet, never to internal ranges
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10]
+      ports:
+        - {port: 443, protocol: TCP}
+        - {port: 80, protocol: TCP}

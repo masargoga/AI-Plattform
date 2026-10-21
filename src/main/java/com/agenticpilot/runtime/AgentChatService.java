@@ -1,6 +1,8 @@
 package com.agenticpilot.runtime;
 
 import com.agenticpilot.common.CurrentUser;
+import com.agenticpilot.common.InvalidInputException;
+import com.agenticpilot.common.RateLimiter;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -14,13 +16,21 @@ public class AgentChatService {
 
     private final ChatPipeline pipeline;
     private final CurrentUser currentUser;
+    private final RateLimiter limiter;
 
-    public AgentChatService(ChatPipeline pipeline, CurrentUser currentUser) {
+    public AgentChatService(ChatPipeline pipeline, CurrentUser currentUser,
+            @org.springframework.beans.factory.annotation.Value("${agenticpilot.chat.rate-limit-per-minute:30}") int perMinute) {
         this.pipeline = pipeline;
         this.currentUser = currentUser;
+        this.limiter = new RateLimiter(perMinute);
     }
 
     public ChatReply send(UUID agentId, UUID conversationId, String userText) {
-        return pipeline.send(ChatActor.of(currentUser.require()), agentId, conversationId, userText);
+        var me = currentUser.require();
+        RateLimiter.Result limit = limiter.tryAcquire(me.getId().toString());
+        if (!limit.allowed()) {
+            throw new InvalidInputException("error.chat.rate", limit.retryAfterSeconds());
+        }
+        return pipeline.send(ChatActor.of(me), agentId, conversationId, userText);
     }
 }

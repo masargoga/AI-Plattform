@@ -17,6 +17,7 @@ import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import jakarta.annotation.security.PermitAll;
 import com.agenticpilot.compliance.ComplianceService;
+import com.agenticpilot.user.AccountService;
 import com.agenticpilot.user.AppUser;
 import com.agenticpilot.user.AppUserRepository;
 
@@ -38,9 +39,12 @@ public class MainLayout extends Div implements RouterLayout, AfterNavigationObse
     private final Div content = new Div();
     private final Span openItems = new Span();
     private final ComplianceService compliance;
+    private final AccountService account;
 
-    public MainLayout(AuthenticationContext auth, AppUserRepository users, ComplianceService compliance) {
+    public MainLayout(AuthenticationContext auth, AppUserRepository users, ComplianceService compliance,
+            AccountService account) {
         this.compliance = compliance;
+        this.account = account;
         addClassName("ap-app");
 
         AppUser user = auth.getPrincipalName().flatMap(users::findByUsername).orElse(null);
@@ -94,7 +98,9 @@ public class MainLayout extends Div implements RouterLayout, AfterNavigationObse
         }
         Button logout = new Button(getTranslation("nav.logout"), new Icon(VaadinIcon.SIGN_OUT), e -> auth.logout());
         logout.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        who.add(logout);
+        Button password = new Button(getTranslation("account.password.menu"), new Icon(VaadinIcon.KEY), e -> new PasswordSheet(account).open());
+        password.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        who.add(password, logout);
         return who;
     }
 
@@ -104,7 +110,10 @@ public class MainLayout extends Div implements RouterLayout, AfterNavigationObse
         Button logout = new Button(new Icon(VaadinIcon.SIGN_OUT), e -> auth.logout());
         logout.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         logout.setAriaLabel(getTranslation("nav.logout"));
-        top.add(brand(), logout);
+        Button password = new Button(new Icon(VaadinIcon.KEY), e -> new PasswordSheet(account).open());
+        password.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        password.setAriaLabel(getTranslation("account.password.menu"));
+        top.add(brand(), password, logout);
         return top;
     }
 

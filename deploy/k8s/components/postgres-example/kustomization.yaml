@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# A single PostgreSQL 16 instance for clusters that have no managed database. It is an example, not a highly
+# available database: for production prefer a managed service or an operator (CloudNativePG, Zalando) with backups.
+resources:
+  - statefulset.yaml
+  - service.yaml

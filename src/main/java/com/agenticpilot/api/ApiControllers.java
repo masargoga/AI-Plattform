@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -54,6 +55,9 @@ class ApiControllers {
 
     private static final Logger log = LoggerFactory.getLogger(ApiControllers.class);
     private static final long STREAM_TIMEOUT_MS = 120_000L;
+    private static final int MAX_STREAMS_PER_KEY = 4;
+
+    private final java.util.concurrent.ConcurrentHashMap<UUID, AtomicInteger> streams = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final AgentRepository agents;
     private final ChatPipeline pipeline;
@@ -115,6 +119,12 @@ class ApiControllers {
     }
 
     private SseEmitter stream(ChatActor actor, UUID agentId, MessageRequest body) {
+        AtomicInteger running = streams.computeIfAbsent(actor.apiKeyId(), k -> new AtomicInteger());
+        if (running.incrementAndGet() > MAX_STREAMS_PER_KEY) {
+            running.decrementAndGet();
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "too_many_streams",
+                    "At most " + MAX_STREAMS_PER_KEY + " streams may run at the same time for one API key.");
+        }
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
         boolean[] open = {true};
         executor.submit(() -> {
@@ -145,6 +155,8 @@ class ApiControllers {
                 log.warn("Streaming message failed for agent {}: {}", agentId, e.getClass().getSimpleName());
                 send(emitter, open, "error", new ApiError("internal_error", "The request could not be completed.", null));
                 emitter.complete();
+            } finally {
+                running.decrementAndGet();
             }
         });
         return emitter;

@@ -17,7 +17,7 @@ Work from the spec; the click-dummy is the visual reference for every screen.
 - Guardrails: 7-control score, workspace policies, custom rules (Block/Mask/Needs approval/Add note), pure-Java guardrail engine shared by chat and API.
 - Four-eyes: rule changes go live only after approval by a different Admin (enforced server-side). Append-only audit log.
 - REST API v1: `POST /api/v1/agents/{id}/messages`, `POST /api/v1/guardrails/check`, `GET /api/v1/approvals/{id}`, `GET /api/v1/agents`; per-agent hashed API keys.
-- Docker multi-stage, non-root; Kubernetes via Kustomize in `deploy/k8s`; single replica with H2, sticky sessions or Vaadin Kubernetes Kit for multi-replica.
+- Docker multi-stage, non-root; Kubernetes via Kustomize in `deploy/k8s`; single replica with H2 (test overlay); production overlay: PostgreSQL, 2+ replicas, sticky sessions plus shared remember-me tokens in the database (decided in M5, no Kubernetes Kit).
 - Package layout: agent, skill, source, guardrail, runtime, audit, compliance, user, api, ui.
 
 - Name: AgenticPilot, tagline "Take the lead with your AI." Java base package `com.agenticpilot`, Maven artifactId `agenticpilot`, seed password env var `AGENTICPILOT_SEED_PASSWORD`.
