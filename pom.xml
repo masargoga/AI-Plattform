@@ -20,7 +20,7 @@
         <java.version>21</java.version>
         <vaadin.version>25.3.3</vaadin.version>
         <pdfbox.version>3.0.8</pdfbox.version>
-        <jsoup.version>1.21.2</jsoup.version>
+        <jsoup.version>1.23.2</jsoup.version>
         <springdoc.version>3.1.1</springdoc.version>
     </properties>
 
