@@ -10,7 +10,7 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -Pproduction -DskipTests package 
  && cp target/agenticpilot-*.jar app.jar
 
 # Stage 2: slim Java 21 runtime, non-root, port 8080
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 RUN groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app --home-dir /app --shell /usr/sbin/nologin app \
  && mkdir -p /app /data && chown -R app:app /app /data
 WORKDIR /app
