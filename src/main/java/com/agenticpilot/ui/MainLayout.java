@@ -100,7 +100,7 @@ public class MainLayout extends Div implements RouterLayout, AfterNavigationObse
         logout.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         Button password = new Button(getTranslation("account.password.menu"), new Icon(VaadinIcon.KEY), e -> new PasswordSheet(account).open());
         password.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        who.add(password, logout);
+        who.add(new ThemeToggle(true), password, logout);
         return who;
     }
 
@@ -113,7 +113,7 @@ public class MainLayout extends Div implements RouterLayout, AfterNavigationObse
         Button password = new Button(new Icon(VaadinIcon.KEY), e -> new PasswordSheet(account).open());
         password.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         password.setAriaLabel(getTranslation("account.password.menu"));
-        top.add(brand(), password, logout);
+        top.add(brand(), new ThemeToggle(false), password, logout);
         return top;
     }
 
