@@ -421,3 +421,12 @@ Seven milestones, each runnable and deployable on its own. Coding starts with M0
 - [x] Retention defaults: 90 days for conversations and 12 months for the audit log. Do these match your policy? **Decided: conversations 90 days by default (per agent); the audit log is never deleted automatically (M6). The operator archives or prunes it by policy, see the runbook.**
 - [x] Are uploaded files scanned for malware, and by which tool? **Decided: No scanner. Strict type, size and structure checks and text-only storage stay; the residual risk is accepted and written in the security review (M6).**
 - [x] Which integrations should replace the stub tools first (email, tickets, spreadsheets)? **Decided: Spreadsheets first, read only (.xlsx and .csv uploads), no outside credentials (M6). Email and tickets stay stubs.**
+
+**Open points (work, not questions)**
+
+- [ ] Add JaCoCo to the Maven build and CI with a minimum coverage threshold. Measured at the end of M6: 51 % of lines overall, about 90 % outside the UI.
+- [ ] Write the missing UI tests: smoke tests for the main flows and an accessibility scan, run in CI (the test strategy asks for them; the `ui` packages have 0 % coverage).
+- [ ] Raise coverage of `compliance` (48 % lines) and add contract tests against the OpenAPI description.
+- [ ] User management screen, single sign-on and multi-factor authentication.
+- [ ] Shared rate limits and sign-in lockout across replicas.
+- [ ] A rollout test on a real Kubernetes cluster; first runs of the PostgreSQL, CodeQL and manifest CI jobs; an external penetration test.
