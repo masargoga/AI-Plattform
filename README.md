@@ -10,13 +10,14 @@ Spec-driven web app (Vaadin 25, Spring Boot 4.1) to manage AI agents, skills, da
 
 ## Run locally (M0)
 
-Requires Java 21+ and Maven. Start the app with:
+Requires Java 21+. Maven does not need to be installed: the repository contains the Maven wrapper (`mvnw` and `mvnw.cmd`), which downloads Maven on first use. If you have Maven installed, `mvn` works the same way. Start the app with:
 
 ```sh
-mvn spring-boot:run
+./mvnw spring-boot:run          # Linux, macOS, Git Bash
+.\mvnw.cmd spring-boot:run      # Windows PowerShell or cmd
 ```
 
-On the first start a random password for the demo users is generated and shown once on the console (look for the framed "Password:" line). To choose your own instead, set it first: `AGENTICPILOT_SEED_PASSWORD='choose-one' mvn spring-boot:run`. Passwords are never stored in the repository; the generated password is only used by `spring-boot:run`, never in the Docker image or Kubernetes.
+On the first start a random password for the demo users is generated and shown once on the console (look for the framed "Password:" line). To choose your own instead, set it first: `AGENTICPILOT_SEED_PASSWORD='choose-one' ./mvnw spring-boot:run` (PowerShell: `$env:AGENTICPILOT_SEED_PASSWORD='choose-one'` first). Passwords are never stored in the repository; the generated password is only used by `spring-boot:run`, never in the Docker image or Kubernetes.
 
 Open http://localhost:8080 and sign in as `owner` (Agent owner), `admin` or `admin2` (Admins) with that password.
 On first start the demo data from the click-dummy (4 agents, 8 skills, 6 data sources) is loaded; set `AGENTICPILOT_DEMO_DATA=false` to start empty.
