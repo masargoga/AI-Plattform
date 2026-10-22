@@ -279,7 +279,7 @@ public class SourcesView extends Div {
                     ui.access(() -> Feedback.error(ui.getTranslation("error.denied")));
                 }
             }));
-            upload.setAcceptedFileTypes(".pdf", ".docx", ".txt", ".md");
+            upload.setAcceptedFileTypes(".pdf", ".docx", ".xlsx", ".csv", ".txt", ".md");
             upload.setMaxFileSize((int) Math.min(uploadLimits.maxBytes(), Integer.MAX_VALUE));
             upload.setId("source-upload");
             Paragraph hint = new Paragraph(getTranslation("files.hint", uploadLimits.maxBytes() / (1024 * 1024)));

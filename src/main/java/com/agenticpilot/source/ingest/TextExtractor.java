@@ -21,12 +21,12 @@ import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.apache.pdfbox.text.PDFTextStripper;
 
 /**
- * Reads text out of uploads: PDF, Word (.docx), plain text and Markdown. The file type is decided by the extension and
+ * Reads text out of uploads: PDF, Word (.docx), spreadsheets (.xlsx, .csv; read only), plain text and Markdown. The file type is decided by the extension and
  * confirmed by the file's first bytes, so a renamed file is refused. Extraction is bounded in pages and characters.
  */
 public final class TextExtractor {
 
-    public static final Set<String> TYPES = Set.of("pdf", "docx", "txt", "md");
+    public static final Set<String> TYPES = Set.of("pdf", "docx", "txt", "md", "csv", "xlsx");
 
     private final UploadProperties limits;
 
@@ -49,6 +49,8 @@ public final class TextExtractor {
         String text = switch (ext) {
             case "pdf" -> pdf(data);
             case "docx" -> docx(data);
+            case "csv" -> new SheetReader(limits).csv(plain(data));
+            case "xlsx" -> new SheetReader(limits).xlsx(data);
             default -> plain(data);
         };
         text = normalise(text);

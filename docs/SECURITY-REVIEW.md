@@ -20,7 +20,7 @@ Scope: the whole application at the end of M5. Method: review of the code agains
 | 12 | Chat | Message flooding from a signed-in user | 30 messages per minute and user |
 | 13 | SSRF | Website connector could reach internal services | Domain allow list, DNS resolved once and checked (no internal, loopback, link-local, embedded IPv4 forms), redirects re-checked, size/time/page limits; NetworkPolicy blocks internal ranges as a second layer |
 | 14 | Regex DoS | Custom rules with catastrophic patterns | Time-bounded matching (`CatchPattern`) |
-| 15 | Uploads | Hostile documents | Type and size checks, parsed in memory (PDFBox for PDF), only extracted text is stored. **Open:** no malware scan |
+| 15 | Uploads | Hostile documents | Type and size checks, parsed in memory (PDFBox for PDF), only extracted text is stored. **Accepted (M6 decision): no malware scan.** Files are never opened by a viewer or executed; spreadsheets are read as data only, formulas are not run, macros (.xlsm) and legacy .xls are refused by type. Anyone who downloads originals from elsewhere should scan them there |
 | 16 | Secrets | Secrets in config or logs | Environment/Secret only; logs are written without message texts, keys or passwords (by design and code review, not by an automated test); the API key is shown once |
 | 17 | Audit | Audit log changeable | Append-only in the application (no update or delete path in the code); database administrators can still change rows (see runbook). **Open:** a database trigger or write-once export |
 | 18 | Multi-replica | Duplicate background jobs | `job_lock` table; expired locks are taken over |
@@ -28,6 +28,8 @@ Scope: the whole application at the end of M5. Method: review of the code agains
 | 20 | Container | Privileges | Non-root user 10001, no privilege escalation, all capabilities dropped, read-only root file system (production), seccomp RuntimeDefault, NetworkPolicy |
 
 ## Accepted risks and follow-ups
+
+- Audit log is kept forever (M6 decision), so it grows; see the runbook for archiving.
 
 - Rate limits and sign-in lockout are per replica (documented). A shared counter in PostgreSQL or Redis would make them exact.
 - CSP does not restrict scripts or styles: Vaadin needs inline styles and its own scripts. A nonce-based policy needs a framework change.

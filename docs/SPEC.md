@@ -377,7 +377,7 @@ Manifests live in the repository under `deploy/k8s` as a Kustomize base plus ove
 
 ## Milestones and tests
 
-Six milestones, each runnable and deployable on its own. Coding starts with M0 once this spec is approved.
+Seven milestones, each runnable and deployable on its own. Coding starts with M0 once this spec is approved.
 
 | Milestone | Scope | Done when |
 | --- | --- | --- |
@@ -387,6 +387,7 @@ Six milestones, each runnable and deployable on its own. Coding starts with M0 o
 | M3 Runtime and upload | Model provider (Claude), prompt assembly, real test chat, guardrail engine in the chat, file upload and ingestion, keyword retrieval, pending actions, retention job | With an API key, the test chat answers from an uploaded PDF and names the source. The guardrail tests behave as specified. Expired conversations are deleted |
 | M4 API and website | REST API with keys, message and check endpoints, approval polling, OpenAPI, rate limits, website connector | An external client gets decisions from the check endpoint. A test site syncs. Private addresses are refused |
 | M5 Production readiness | PostgreSQL profile, multi-replica decision (sticky sessions or Kubernetes Kit), security review, runbook | A rolling update loses no data. Two replicas keep users signed in. The runbook is complete |
+| M6 Open decisions | Decisions on registry, retention, malware scanning and the first integration; read-only spreadsheets (.xlsx, .csv) as data source files for the Read spreadsheets tool | Spreadsheet uploads are searchable by any cell value and refused when oversized or renamed. The decisions and their consequences are in the runbook and security review |
 
 **Test strategy**
 
@@ -404,11 +405,11 @@ Six milestones, each runnable and deployable on its own. Coding starts with M0 o
 - One workspace, no separate tenants. All users see the same agents, skills, sources and rules.
 - The Claude API key and the model names are supplied by you through configuration.
 - The first UI language is English.
-- Send email, Create ticket, Browse the web and Read spreadsheets exist as skill tools in the interface. Only Search documents is functional until their integrations are defined.
+- Send email, Create ticket, Browse the web and Read spreadsheets exist as skill tools in the interface. Search documents and Read spreadsheets (uploaded .xlsx and .csv files) are functional; the others are stubs until their integrations are defined.
 
 **Open questions**
 
-- [ ] GitHub: owner and name of the private repository, and is GitHub Container Registry fine for images?
+- [x] GitHub: owner and name of the private repository, and is GitHub Container Registry fine for images? **Decided: Yes, GitHub Container Registry (`ghcr.io/masargoga/ai-plattform`) (M6).**
 - [x] Skills and sources: may Agent owners edit those created by others, or only their own? **Decided: Agent owners edit only their own; Admins edit all.**
 - [x] Pending actions from Needs approval are an addition to the click-dummy. Can any Admin approve them? **Decided: Yes, any Admin (M3).**
 - [x] Should workspace policies also be versioned and approved like custom rules? **Decided: Yes, versioned (history kept); no approval needed.**
@@ -417,6 +418,6 @@ Six milestones, each runnable and deployable on its own. Coding starts with M0 o
 - [x] Does the message API need streaming answers in the first version? **Decided: Yes, streaming answers are required (M4).**
 - [x] Is German needed in the first release or later? **Decided: No German translation; English only, message bundles stay.**
 - [x] Website connector: should Admins keep an allow list of domains that may be crawled? **Decided: Yes, an Admin-managed domain allow list (M4).**
-- [ ] Retention defaults: 90 days for conversations and 12 months for the audit log. Do these match your policy?
-- [ ] Are uploaded files scanned for malware, and by which tool?
-- [ ] Which integrations should replace the stub tools first (email, tickets, spreadsheets)?
+- [x] Retention defaults: 90 days for conversations and 12 months for the audit log. Do these match your policy? **Decided: conversations 90 days by default (per agent); the audit log is never deleted automatically (M6). The operator archives or prunes it by policy, see the runbook.**
+- [x] Are uploaded files scanned for malware, and by which tool? **Decided: No scanner. Strict type, size and structure checks and text-only storage stay; the residual risk is accepted and written in the security review (M6).**
+- [x] Which integrations should replace the stub tools first (email, tickets, spreadsheets)? **Decided: Spreadsheets first, read only (.xlsx and .csv uploads), no outside credentials (M6). Email and tickets stay stubs.**

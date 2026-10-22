@@ -130,11 +130,15 @@ Run SQL with `psql` against the production database. Take a backup first.
 
 **Add a user:** insert into `app_user` (`id` UUID, `username`, `display_name`, `password_hash`, `role` = `ADMIN` or `AGENT_OWNER`, `active` = true, timestamps, `version` = 0).
 
-**Data subject request:** conversations are linked to agents and users; find them in the `conversation` and `message` tables, delete the rows, and note it in the audit log. Conversations expire by themselves after the agent's retention period (the audit log never contains message texts; it is not deleted automatically, and its retention period is still an open question in the spec).
+**Data subject request:** conversations are linked to agents and users; find them in the `conversation` and `message` tables, delete the rows, and note it in the audit log. Conversations expire by themselves after the agent's retention period (the audit log never contains message texts and is deliberately never deleted automatically).
 
 **Stuck source sync:** a sync in "Syncing" for more than 30 minutes is marked failed by the watchdog. The last good content stays in use.
 
 **Clear the sign-in lockout:** restart one pod, or wait 15 minutes.
+
+**Audit log growth:** the log is kept forever by decision. Watch the size of `audit_entry` (`select pg_size_pretty(pg_total_relation_size('audit_entry'));`). If your policy needs it, export old rows (CSV export in Policies, or `pg_dump -t audit_entry`) to a write-once store first, then delete them with SQL. Record the deletion in your change log.
+
+**Spreadsheets:** `.xlsx` and `.csv` files uploaded to a data source are read as text: the first row is the header and each further row becomes a line "Column: value; ...". Limits: 50,000 rows (`agenticpilot.upload.max-rows`), 100 columns, the upload size and character limits. Formulas show their stored result, dates show their stored number, macro files and old `.xls` are refused.
 
 ## 11. Troubleshooting
 
@@ -156,6 +160,6 @@ Run SQL with `psql` against the production database. Take a backup first.
 - No user management screen and no single sign-on: users are changed with SQL (section 10). Planned.
 - Sticky sessions mean a replica loss reloads open pages (unsaved dialog input is lost). The Vaadin Kubernetes Kit would remove this and was not chosen (see the decision in the spec).
 - Rate limits and the sign-in lockout are per replica.
-- Keyword search only for data sources; uploads are not virus scanned (open question in the spec).
+- Keyword search only for data sources; uploads are not virus scanned (accepted, see the security review). Email and ticket tools are still stubs.
 - The audit log is append-only in the application code (there is no update or delete path), but a database administrator can still change it. Ship it to a write-once store if you need stronger proof.
 - The Kubernetes manifests were validated by rendering them (`kubectl kustomize`), and the application against PostgreSQL 16 in tests; a full cluster rollout test is part of your acceptance.

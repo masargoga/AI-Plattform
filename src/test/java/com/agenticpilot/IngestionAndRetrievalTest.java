@@ -44,7 +44,7 @@ class IngestionAndRetrievalTest {
     @Autowired Retriever retriever;
     @Autowired com.agenticpilot.source.AllowedDomainService allowedDomains;
 
-    private final TextExtractor extractor = new TextExtractor(new UploadProperties(1024 * 1024, 50_000, 3));
+    private final TextExtractor extractor = new TextExtractor(new UploadProperties(1024 * 1024, 50_000, 3, 1000));
 
     @AfterEach
     void signOut() {
@@ -141,7 +141,7 @@ class IngestionAndRetrievalTest {
 
     @Test
     void zipBombsAreStopped() throws Exception {
-        TextExtractor small = new TextExtractor(new UploadProperties(2_000, 1_000_000, 10));
+        TextExtractor small = new TextExtractor(new UploadProperties(2_000, 1_000_000, 10, 1000));
         String huge = docxBody("a".repeat(500_000));
         byte[] bomb = docx(huge);
         assertThat(bomb.length).isLessThan(2_000); // compresses to almost nothing
