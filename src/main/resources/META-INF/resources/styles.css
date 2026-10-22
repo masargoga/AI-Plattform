@@ -43,21 +43,26 @@ h1,h2,h3{font-family:var(--ap-font-display);letter-spacing:-.01em}
 code,pre{font-family:var(--ap-font-mono)}
 :focus-visible{outline:2px solid var(--ap-accent);outline-offset:2px}
 
-.ap-brand{display:flex;align-items:center;gap:10px;font:700 20px var(--ap-font-display);letter-spacing:-.02em;color:var(--ap-ink)}
-.ap-logo{width:28px;height:28px;border-radius:8px;background:var(--ap-accent);display:grid;place-items:center}
-.ap-logo svg{width:28px;height:28px}
+.ap-brand{display:flex;align-items:center;gap:12px;font:700 24px var(--ap-font-display);letter-spacing:-.02em;color:var(--ap-ink)}
+.ap-logo{width:36px;height:36px;border-radius:10px;background:var(--ap-accent);display:grid;place-items:center}
+.ap-logo svg{width:36px;height:36px}
 .ap-logo path{stroke:var(--ap-accent-ink);fill:none}
-.ap-tagline{color:var(--ap-ink-2);font-size:13px}
-.ap-rail{display:flex;flex-direction:column;gap:20px;padding:20px 16px;height:100%;box-sizing:border-box}
-.ap-who{margin-top:auto;display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--ap-ink-2)}
+.ap-tagline{color:var(--ap-ink-2);font-size:15px}
+.ap-rail{display:flex;flex-direction:column;gap:24px;padding:24px 20px;height:100%;box-sizing:border-box}
+.ap-who{margin-top:auto;display:flex;flex-direction:column;gap:4px;font-size:15px;color:var(--ap-ink-2)}
 .ap-who strong{color:var(--ap-ink)}
+/* Larger navigation items in the left rail */
+.ap-rail vaadin-side-nav-item{font-size:17px;font-weight:600}
+.ap-rail vaadin-side-nav-item::part(content){padding:12px 14px;min-height:48px;border-radius:10px}
+.ap-rail vaadin-side-nav-item vaadin-icon{width:24px;height:24px}
+.ap-rail .ap-who vaadin-button{font-size:15px}
 .ap-page{max-width:1240px;margin:0 auto;padding:20px 16px 96px;box-sizing:border-box}
 .ap-sub{color:var(--ap-ink-2);max-width:60ch;margin-top:6px}
 .ap-card{background:var(--ap-surface);border:1px solid var(--ap-line);border-radius:14px;box-shadow:var(--ap-shadow);padding:16px}
 .ap-empty{border:1px dashed var(--ap-line);border-radius:12px;padding:20px;color:var(--ap-ink-2)}
 
 /* Layout: left rail + workspace on desktop; top bar + bottom tabs below 860px */
-.ap-app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh;max-width:1360px;margin:0 auto}
+.ap-app{display:grid;grid-template-columns:288px minmax(0,1fr);min-height:100vh;max-width:1360px;margin:0 auto}
 .ap-rail{position:sticky;top:0;height:100vh}
 .ap-topbar,.ap-tabbar{display:none}
 .ap-login{max-width:420px;margin:12vh auto;padding:0 16px;text-align:center}
