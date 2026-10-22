@@ -74,6 +74,7 @@ Two roles cover the first releases: Admin and Agent owner. Users sign in with a 
 - A login page with username and password, built with Vaadin `LoginForm` and Spring Security.
 - Users live in the database. A migration seeds three: an Agent owner and two Admins, so the approval flow can be tested.
 - Passwords are stored hashed (BCrypt). The seed password comes from configuration, never from source code.
+- Every user can change their own password (12 to 72 characters); this signs out their other devices. Five failed sign-ins lock a name for 15 minutes.
 - The click-dummy's "View as" switch is a prototype aid. The real app uses the signed-in user.
 - Every view declares its allowed roles. Unauthorised access shows a clear message, not an empty page.
 
@@ -162,7 +163,7 @@ Actions in detail: **Block** answers with the message and never calls the model.
 ### Audit log
 
 - Append-only. Each entry has time, agent (or Workspace), event text and an outcome: Allowed, Masked, Blocked or Needs approval.
-- Filter by outcome. Export as CSV. Kept for 12 months by default. No screen can edit or delete an entry.
+- Filter by outcome. Export as CSV. Kept indefinitely (decided in M6; the operator archives by policy). No screen can edit or delete an entry.
 - Rule proposals, approvals, rejections, deletions and on/off changes appear here, next to agent events.
 - Addition to the click-dummy: Needs approval entries create a pending action that an Admin can approve or deny from the log.
 
@@ -302,7 +303,7 @@ Sheets: new agent (3 steps), add skills, add data sources, connect source (2 ste
 
 **Responsive.** The agent and skill pages show the editor and the test panel side by side from 1180 px and as tabs below. Tap targets are at least 40 px. Nothing scrolls sideways.
 
-**Theme.** Light and dark follow the system setting. The accent is teal. Status colours are separate: green, amber, red. Headings use Bricolage Grotesque, text uses DM Sans and code uses JetBrains Mono. Fonts are bundled with the app and never loaded from an external server, to avoid sending visitor data to third parties.
+**Theme.** Light and dark follow the system setting until the user picks one with the toggle next to their name; the choice is kept in the browser. The accent is teal. Status colours are separate: green, amber, red. Headings use Bricolage Grotesque, text uses DM Sans and code uses JetBrains Mono. Fonts are bundled with the app and never loaded from an external server, to avoid sending visitor data to third parties.
 
 **Behaviour rules**
 
@@ -323,6 +324,14 @@ The app handles possibly personal data, so privacy rules are part of the design 
 - API keys belong to one agent, are stored hashed, shown once and revocable.
 - Secrets (model API key, database password, seed password) come from environment variables or Kubernetes Secrets and never appear in logs.
 
+**Added during M5 and M6 (not in the first version of this spec)**
+
+- Sign-in survives a replica loss through persistent remember-me tokens in the database; sign-out and password change delete them.
+- Security headers (CSP, frame, referrer, permissions), no error details, secure cookies behind HTTPS, a separate management port for probes and metrics.
+- Chat rate limit per user (30 per minute), at most 4 concurrent streams per API key, chunked API bodies refused.
+- Background jobs (retention, sync watchdog, token cleanup) take a database lock (`job_lock`). Extra tables: `workspace_policy_version`, `allowed_domain`, `persistent_logins`, `job_lock`.
+- Deployment: production overlay (2 to 5 replicas, rolling update, disruption budget, autoscaler, network policy), optional PostgreSQL example, local test setup for Docker Desktop and kind (`deploy/local`), CI jobs for PostgreSQL, manifests and CodeQL, Dependabot. Operating guide in `docs/RUNBOOK.md`, review in `docs/SECURITY-REVIEW.md`.
+
 **Data protection**
 
 - Personal data is masked before the model call. Stored messages hold the masked text.
@@ -333,7 +342,7 @@ The app handles possibly personal data, so privacy rules are part of the design 
 
 **Inputs from outside**
 
-- Uploads are limited by size (25 MB default) and type (PDF, Word, text, Markdown). Files are stored in the database in the test setup.
+- Uploads are limited by size (25 MB default) and type (PDF, Word, Excel, CSV, text, Markdown). Files are stored in the database in the test setup.
 - The website connector blocks private and cluster-internal addresses (protection against server-side request forgery), allows only http and https, and sets timeouts and size limits.
 - Retrieved text is data, never instructions. With hidden-instruction protection on, instruction-like passages are flagged and cannot change tool permissions or guardrails.
 
@@ -424,6 +433,13 @@ Seven milestones, each runnable and deployable on its own. Coding starts with M0
 
 **Open points (work, not questions)**
 
+- [ ] **Tools are not used by the model.** The prompt does not offer tool definitions and tool calls are not executed (section "Prompt assembly"). Search documents works because passages are always retrieved; Read spreadsheets works the same way; the other tools are stubs.
+- [ ] **Human review for decisions about people** is stored and shown but nothing enforces it in the runtime.
+- [ ] **Data subject requests: Find data** is not built (the screen says it arrives later). It must search all sources and stored conversations for the person.
+- [ ] **Delete** for agents, skills and data sources is missing (only custom rules can be deleted). Deleting an agent must follow the integrity rule: conversations, keys and links go, audit entries stay with the agent name.
+- [ ] **Compliance records** are seeded only by demo data (on by default with the `h2` profile, off with `postgres`). A production database starts without the four example records; seed them with a migration or an Admin action.
+- [ ] **Browser tests** for key flows (named in the test strategy) do not exist yet.
+- [ ] Data model text: not every table has created and updated timestamps (join tables, `audit_entry` with `occurred_at`, `persistent_logins`, `job_lock`). Align the spec or the tables.
 - [ ] Add JaCoCo to the Maven build and CI with a minimum coverage threshold. Measured at the end of M6: 51 % of lines overall, about 90 % outside the UI.
 - [ ] Write the missing UI tests: smoke tests for the main flows and an accessibility scan, run in CI (the test strategy asks for them; the `ui` packages have 0 % coverage).
 - [ ] Raise coverage of `compliance` (48 % lines) and add contract tests against the OpenAPI description.
