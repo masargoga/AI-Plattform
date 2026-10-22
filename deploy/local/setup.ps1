@@ -39,8 +39,15 @@ if ($desktopUsable) {
     Write-Host '==> Using the Docker Desktop cluster'
     # With Docker Desktop's "kind" provisioner the nodes do not see local images: load it. With "kubeadm" this is not needed.
     $nodes = kubectl --context docker-desktop get nodes -o name
-    if (($nodes -match 'desktop-control-plane') -and $hasKind) {
-        Run kind @('load', 'docker-image', $Image, '--name', 'desktop')
+    if ($nodes -match 'desktop-control-plane') {
+        if ($hasKind) {
+            Run kind @('load', 'docker-image', $Image, '--name', 'desktop')
+        } else {
+            # No kind installed: copy the image into the node container by hand
+            Write-Host '==> Loading the image into the Docker Desktop node'
+            cmd /c "docker save $Image | docker exec -i desktop-control-plane ctr -n k8s.io images import -"
+            if ($LASTEXITCODE -ne 0) { throw 'Could not load the image into the Docker Desktop node.' }
+        }
     }
 } else {
     if (-not $hasKind) { throw 'No Kubernetes cluster found. Enable Kubernetes in Docker Desktop (Settings > Kubernetes), or install kind: https://kind.sigs.k8s.io' }
@@ -64,7 +71,15 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not create the secret.' }
 Run kubectl @('--context', $Context, 'apply', '-k', 'deploy/k8s/overlays/local')
 # A changed image with the same tag needs a restart
 Run kubectl @('--context', $Context, '-n', $Ns, 'rollout', 'restart', 'deploy/agenticpilot')
-Run kubectl @('--context', $Context, '-n', $Ns, 'rollout', 'status', 'deploy/agenticpilot', '--timeout=300s')
+kubectl --context $Context -n $Ns rollout status deploy/agenticpilot --timeout=300s
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "`n==> The pod did not become ready. Details:`n"
+    kubectl --context $Context -n $Ns get pods -o wide
+    kubectl --context $Context -n $Ns describe pods -l app=agenticpilot
+    Write-Host "`n==> Log of the application:`n"
+    kubectl --context $Context -n $Ns logs -l app=agenticpilot --tail=80
+    throw 'AgenticPilot did not start. Send the output above to get help.'
+}
 
 Write-Host @"
 

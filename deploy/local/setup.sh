@@ -20,8 +20,12 @@ if kubectl config get-contexts -o name | grep -qx docker-desktop && kubectl --co
   CONTEXT=docker-desktop
   echo "==> Using the Docker Desktop cluster"
   # With Docker Desktop's "kind" provisioner the nodes do not see local images: load it. With "kubeadm" this is not needed.
-  if kubectl --context docker-desktop get nodes -o name | grep -q desktop-control-plane && command -v kind >/dev/null; then
-    kind load docker-image "$IMAGE" --name desktop
+  if kubectl --context docker-desktop get nodes -o name | grep -q desktop-control-plane; then
+    if command -v kind >/dev/null; then
+      kind load docker-image "$IMAGE" --name desktop
+    else
+      docker save "$IMAGE" | docker exec -i desktop-control-plane ctr -n k8s.io images import -
+    fi
   fi
 else
   command -v kind >/dev/null || { echo "No Kubernetes cluster found. Enable Kubernetes in Docker Desktop (Settings > Kubernetes) or install kind: https://kind.sigs.k8s.io"; exit 1; }
@@ -41,7 +45,14 @@ $KUBECTL -n "$NS" create secret generic agenticpilot-secrets \
 $KUBECTL apply -k deploy/k8s/overlays/local
 # A changed image with the same tag needs a restart
 $KUBECTL -n "$NS" rollout restart deploy/agenticpilot >/dev/null
-$KUBECTL -n "$NS" rollout status deploy/agenticpilot --timeout=300s
+if ! $KUBECTL -n "$NS" rollout status deploy/agenticpilot --timeout=300s; then
+  echo; echo "==> The pod did not become ready. Details:"
+  $KUBECTL -n "$NS" get pods -o wide
+  $KUBECTL -n "$NS" describe pods -l app=agenticpilot
+  echo; echo "==> Log of the application:"
+  $KUBECTL -n "$NS" logs -l app=agenticpilot --tail=80 || true
+  exit 1
+fi
 
 cat <<MSG
 
