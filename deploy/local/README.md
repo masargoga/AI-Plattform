@@ -2,8 +2,20 @@
 
 For trying the Kubernetes deployment on your own machine. It uses the H2 test setup (one replica, data on a volume of the cluster), not the production overlay.
 
-1. Start Docker Desktop and turn on **Settings > Kubernetes > Enable** (or install [kind](https://kind.sigs.k8s.io), the script then creates its own cluster).
-2. From the repository root:
+1. Start Docker Desktop (the WSL 2 backend is fine) and turn on **Settings > Kubernetes > Enable** (or install [kind](https://kind.sigs.k8s.io), the script then creates its own cluster).
+2. From the repository root.
+
+   **Windows (PowerShell):**
+
+   ```powershell
+   $env:AGENTICPILOT_SEED_PASSWORD = 'choose-a-password'
+   $env:AGENTICPILOT_MODEL_API_KEY = '...'   # optional, for real model answers
+   .\deploy\local\setup.ps1
+   ```
+
+   If PowerShell refuses to run the script, allow it for this window only: `Set-ExecutionPolicy -Scope Process Bypass`.
+
+   **Linux, macOS, WSL or Git Bash:**
 
    ```sh
    AGENTICPILOT_SEED_PASSWORD='choose-a-password' deploy/local/setup.sh
