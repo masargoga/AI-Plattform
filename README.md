@@ -10,11 +10,13 @@ Spec-driven web app (Vaadin 25, Spring Boot 4.1) to manage AI agents, skills, da
 
 ## Run locally (M0)
 
-Requires Java 21+ and Maven. The seed password for the demo users is never stored in the repository:
+Requires Java 21+ and Maven. Start the app with:
 
 ```sh
-AGENTICPILOT_SEED_PASSWORD='choose-one' mvn spring-boot:run
+mvn spring-boot:run
 ```
+
+On the first start a random password for the demo users is generated and shown once on the console (look for the framed "Password:" line). To choose your own instead, set it first: `AGENTICPILOT_SEED_PASSWORD='choose-one' mvn spring-boot:run`. Passwords are never stored in the repository; the generated password is only used by `spring-boot:run`, never in the Docker image or Kubernetes.
 
 Open http://localhost:8080 and sign in as `owner` (Agent owner), `admin` or `admin2` (Admins) with that password.
 On first start the demo data from the click-dummy (4 agents, 8 skills, 6 data sources) is loaded; set `AGENTICPILOT_DEMO_DATA=false` to start empty.

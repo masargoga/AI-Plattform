@@ -26,17 +26,37 @@ class SeedUsers implements ApplicationRunner {
         this.seed = seed;
     }
 
+    private static String randomPassword() {
+        String alphabet = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        java.security.SecureRandom random = new java.security.SecureRandom();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 16; i++) {
+            sb.append(alphabet.charAt(random.nextInt(alphabet.length())));
+        }
+        return sb.toString();
+    }
+
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
         if (users.count() > 0) {
             return;
         }
-        if (seed.password() == null || seed.password().isBlank()) {
-            throw new IllegalStateException(
-                    "No users exist yet. Set AGENTICPILOT_SEED_PASSWORD (agenticpilot.seed.password) to create the demo users.");
+        String password = seed.password();
+        if (password == null || password.isBlank()) {
+            if (!seed.generateIfMissing()) {
+                throw new IllegalStateException(
+                        "No users exist yet. Set AGENTICPILOT_SEED_PASSWORD (agenticpilot.seed.password) to create the demo users.");
+            }
+            password = randomPassword();
+            // Printed to the console of whoever started the app, not written to the log
+            System.out.println("\n=====================================================================\n"
+                    + " No AGENTICPILOT_SEED_PASSWORD set: generated a password for this run.\n"
+                    + " Users: owner, admin, admin2     Password: " + password + "\n"
+                    + " (shown once; delete ./data to start over)\n"
+                    + "=====================================================================\n");
         }
-        String hash = encoder.encode(seed.password());
+        String hash = encoder.encode(password);
         users.saveAll(List.of(
                 new AppUser("owner", "Olivia Owner", hash, Role.AGENT_OWNER),
                 new AppUser("admin", "Adam Admin", hash, Role.ADMIN),

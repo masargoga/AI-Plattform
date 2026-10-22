@@ -122,6 +122,12 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- Only for `mvn spring-boot:run`: a missing seed password is generated and shown once on the console -->
+                    <systemPropertyVariables>
+                        <agenticpilot.seed.generate-if-missing>true</agenticpilot.seed.generate-if-missing>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>com.vaadin</groupId>
