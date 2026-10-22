@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: agenticpilot
+# Local test cluster (Docker Desktop or kind): the image is built on your machine, nothing is pulled,
+# there is no ingress controller, and the app is reached with `kubectl port-forward` (see deploy/local/README.md).
+resources:
+  - ../../base
+images:
+  - name: ghcr.io/masargoga/ai-plattform
+    newName: agenticpilot
+    newTag: local
+patches:
+  - target: {kind: Ingress, name: agenticpilot}
+    patch: |-
+      $patch: delete
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: agenticpilot
+  - target: {kind: Deployment, name: agenticpilot}
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
