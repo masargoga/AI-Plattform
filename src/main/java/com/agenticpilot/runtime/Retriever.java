@@ -15,4 +15,7 @@ public interface Retriever {
 
     /** Like {@link #retrieve(UUID, String, int)}, for an explicit set of sources (an agent draft that attaches other sources). */
     List<Retrieved> retrieveFrom(Collection<UUID> sourceIds, String question, int limit);
+
+    /** Names of the given sources that are left out of answers because they are in error or too old and set to stop and report. */
+    List<String> unavailable(Collection<UUID> sourceIds);
 }

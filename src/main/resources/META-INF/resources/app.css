@@ -238,3 +238,9 @@ vaadin-dialog-overlay.ap-sheet-overlay::part(content){padding:0;display:flex;fle
 .ap-field input,.ap-field textarea,.ap-field select,.ap-search input{box-sizing:border-box}
 .ap-sheet-h h2{font:600 18px/1.25 var(--ap-font-display)}
 .ap-field>.ap-hint{margin:0}
+
+/* Enforcement labels on guardrail controls */
+.ap-enf{font-size:12px;margin-top:6px;display:inline-block}
+.ap-enf-platform{background:var(--ap-good-soft);color:var(--ap-good)}
+.ap-enf-model{background:var(--ap-warn-soft);color:var(--ap-warn)}
+.ap-enf-recorded_only{background:var(--ap-bad-soft);color:var(--ap-bad)}

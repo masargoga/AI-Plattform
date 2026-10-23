@@ -41,8 +41,10 @@ public class KeywordRetriever implements Retriever {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Retrieved> retrieveFrom(Collection<UUID> sourceIds, String question, int limit) {
+    public List<Retrieved> retrieveFrom(Collection<UUID> allSourceIds, String question, int limit) {
         List<String> terms = terms(question);
+        Set<UUID> left = unavailableIds(allSourceIds);
+        List<UUID> sourceIds = allSourceIds.stream().filter(id -> !left.contains(id)).toList();
         if (terms.isEmpty() || limit <= 0 || sourceIds.isEmpty()) {
             return List.of();
         }
@@ -68,6 +70,38 @@ public class KeywordRetriever implements Retriever {
         return found.stream().filter(r -> r.score() > 0)
                 .sorted(Comparator.comparingDouble(Retrieved::score).reversed().thenComparing(Retrieved::documentTitle))
                 .limit(limit).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> unavailable(Collection<UUID> sourceIds) {
+        if (sourceIds.isEmpty()) {
+            return List.of();
+        }
+        Set<UUID> ids = unavailableIds(sourceIds);
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.query("select name from data_source where id in (" + String.join(", ", java.util.Collections.nCopies(ids.size(), "?")) + ") order by name",
+                (rs, n) -> rs.getString(1), ids.toArray());
+    }
+
+    private Set<UUID> unavailableIds(Collection<UUID> sourceIds) {
+        if (sourceIds.isEmpty()) {
+            return Set.of();
+        }
+        java.time.Instant now = java.time.Instant.now();
+        Set<UUID> result = new LinkedHashSet<>();
+        jdbc.query("select id, status, last_synced, max_age_days from data_source where on_failure = 'STOP_AND_REPORT' and id in ("
+                + String.join(", ", java.util.Collections.nCopies(sourceIds.size(), "?")) + ")", rs -> {
+            java.sql.Timestamp synced = rs.getTimestamp(3);
+            boolean stale = synced == null
+                    || java.time.Duration.between(synced.toInstant(), now).compareTo(java.time.Duration.ofDays(rs.getInt(4))) > 0;
+            if ("ERROR".equals(rs.getString(2)) || stale) {
+                result.add(rs.getObject(1, UUID.class));
+            }
+        }, sourceIds.toArray());
+        return result;
     }
 
     /** Lower-case search words of at least three letters, without common words, at most {@value #MAX_TERMS}. */

@@ -54,6 +54,37 @@ public class DataSourceService {
         return currentUser.canEdit(source.getCreatedBy());
     }
 
+    /** The settings a reviewer relies on. Changes take effect at once and are audited. */
+    public record Settings(String ownerName, TrustLevel trustLevel, OnFailure onFailure, int maxAgeDays, java.time.LocalDate reviewBy,
+                           String versionInfo) {
+    }
+
+    public DataSource updateSettings(UUID id, Settings settings) {
+        DataSource source = get(id);
+        currentUser.requireEdit(source.getCreatedBy());
+        String owner = settings.ownerName() == null ? "" : settings.ownerName().strip();
+        String info = settings.versionInfo() == null ? "" : settings.versionInfo().strip();
+        if (owner.length() > 80) {
+            throw new InvalidInputException("error.tooLong", 80);
+        }
+        if (info.length() > 200) {
+            throw new InvalidInputException("error.tooLong", 200);
+        }
+        if (settings.maxAgeDays() < 1 || settings.maxAgeDays() > 3650) {
+            throw new InvalidInputException("error.source.maxAge");
+        }
+        if (settings.trustLevel() == null || settings.onFailure() == null) {
+            throw new InvalidInputException("error.invalidChoice");
+        }
+        TrustLevel oldTrust = source.getTrustLevel();
+        OnFailure oldFailure = source.getOnFailure();
+        source.applySettings(owner, settings.trustLevel(), settings.onFailure(), settings.maxAgeDays(), settings.reviewBy(), info);
+        audit.workspace("Settings of data source \u201c" + source.getName() + "\u201d changed by " + currentUser.require().getDisplayName(),
+                AuditOutcome.ALLOWED, null, Map.of("trust", settings.trustLevel().name(), "wasTrust", oldTrust.name(),
+                        "onFailure", settings.onFailure().name(), "wasOnFailure", oldFailure.name(), "maxAgeDays", settings.maxAgeDays()));
+        return source;
+    }
+
     public DataSource create(String name, SourceKind kind, String location) {
         String n = name == null ? "" : name.strip();
         if (n.isEmpty()) {

@@ -28,11 +28,16 @@ public class ComplianceService {
     private final SubjectRequestRepository requests;
     private final RuleVersionRepository ruleVersions;
     private final PendingActionRepository pendingActions;
+    private final com.agenticpilot.skill.SkillVersionRepository skillVersions;
+    private final com.agenticpilot.agent.AgentVersionRepository agentVersions;
     private final AuditService audit;
     private final CurrentUser currentUser;
 
     public ComplianceService(ComplianceRecordRepository records, SubjectRequestRepository requests,
-                             RuleVersionRepository ruleVersions, PendingActionRepository pendingActions, AuditService audit, CurrentUser currentUser) {
+                             RuleVersionRepository ruleVersions, PendingActionRepository pendingActions, AuditService audit, CurrentUser currentUser,
+                             com.agenticpilot.skill.SkillVersionRepository skillVersions, com.agenticpilot.agent.AgentVersionRepository agentVersions) {
+        this.skillVersions = skillVersions;
+        this.agentVersions = agentVersions;
         this.pendingActions = pendingActions;
         this.records = records;
         this.requests = requests;
@@ -76,6 +81,7 @@ public class ComplianceService {
     @Transactional(readOnly = true)
     public int openItems() {
         return records.countByStatusNot(RecordStatus.DONE) + requests.countByDoneAtIsNull() + ruleVersions.countByStatus(VersionStatus.PENDING)
+                + skillVersions.countByStatus(com.agenticpilot.governance.ChangeStatus.PENDING) + agentVersions.countByStatus(com.agenticpilot.governance.ChangeStatus.PENDING)
                 + pendingActions.countByStatus(PendingActionStatus.PENDING);
     }
 }

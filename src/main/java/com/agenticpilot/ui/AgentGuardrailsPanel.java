@@ -6,6 +6,7 @@ import com.agenticpilot.guardrail.ApprovalAction;
 import com.agenticpilot.guardrail.Control;
 import com.agenticpilot.guardrail.CustomRule;
 import com.agenticpilot.guardrail.CustomRuleService;
+import com.agenticpilot.guardrail.Enforcement;
 import com.agenticpilot.guardrail.GuardrailScore;
 import com.agenticpilot.guardrail.PersonalDataMode;
 import com.agenticpilot.guardrail.Region;
@@ -84,6 +85,19 @@ class AgentGuardrailsPanel extends Div {
         return new Paragraph(text);
     }
 
+    /** A small label that tells how the control is enforced: by the platform, only by the prompt, or not yet. */
+    private com.vaadin.flow.component.Component tag(Enforcement.Topic topic) {
+        Enforcement e = Enforcement.of(topic);
+        com.vaadin.flow.component.html.Span pill = Dom.span("ap-pill ap-enf ap-enf-" + e.name().toLowerCase(java.util.Locale.ROOT), getTranslation("enforcement." + e.name()));
+        pill.getElement().setAttribute("title", getTranslation("enforcement." + e.name() + ".hint"));
+        return pill;
+    }
+
+    private <T extends com.vaadin.flow.component.Component> T tagged(T field, Enforcement.Topic topic) {
+        field.getElement().appendChild(tag(topic).getElement());
+        return field;
+    }
+
     private static Paragraph hint(String text) {
         Paragraph p = new Paragraph(text);
         p.addClassName("ap-hint");
@@ -131,7 +145,8 @@ class AgentGuardrailsPanel extends Div {
                 apply(() -> guardrails.setPurpose(agentId, e.getValue()));
             }
         });
-        return card("guard.purpose", "guard.purpose.sub", new FormField(getTranslation("guard.purpose"), "g-purpose", purpose, null));
+        return card("guard.purpose", "guard.purpose.sub",
+                tagged(new FormField(getTranslation("guard.purpose"), "g-purpose", purpose, null), Enforcement.Topic.PURPOSE));
     }
 
     private Div personalPanel(AgentGuardrail g, WorkspacePolicy pol) {
@@ -163,7 +178,7 @@ class AgentGuardrailsPanel extends Div {
         if (pol.isSpecialDataOn()) {
             spField.add(Dom.lock(getTranslation("guard.special.lock")));
         }
-        return card("guard.personal", "guard.personal.sub", piiField, spField);
+        return card("guard.personal", "guard.personal.sub", tagged(piiField, Enforcement.Topic.PERSONAL_DATA), tagged(spField, Enforcement.Topic.SPECIAL_DATA));
     }
 
     private Div actionsPanel(AgentGuardrail g) {
@@ -184,8 +199,8 @@ class AgentGuardrailsPanel extends Div {
                 g.getMaxRecords());
         limit.setEnabled(editable);
         limit.onChange(v -> apply(() -> guardrails.setMaxRecords(agentId, v)));
-        return card("guard.actions", "guard.actions.sub", chips,
-                new FormField(getTranslation("guard.limit.label"), null, Dom.div(null, limit), getTranslation("guard.limit.hint")));
+        return card("guard.actions", "guard.actions.sub", tagged(chips, Enforcement.Topic.APPROVALS),
+                tagged(new FormField(getTranslation("guard.limit.label"), null, Dom.div(null, limit), getTranslation("guard.limit.hint")), Enforcement.Topic.MAX_RECORDS));
     }
 
     private Div locationPanel(AgentGuardrail g, WorkspacePolicy pol) {
@@ -205,8 +220,8 @@ class AgentGuardrailsPanel extends Div {
         if (pol.isEuOnlyOn()) {
             regionField.add(Dom.lock(getTranslation("guard.region.lock")));
         }
-        return card("guard.location", "guard.location.sub", regionField,
-                new FormField(getTranslation("guard.retention.label"), null, Dom.div(null, retention), getTranslation("guard.retention.hint")));
+        return card("guard.location", "guard.location.sub", tagged(regionField, Enforcement.Topic.REGION),
+                tagged(new FormField(getTranslation("guard.retention.label"), null, Dom.div(null, retention), getTranslation("guard.retention.hint")), Enforcement.Topic.RETENTION));
     }
 
     private Div safetyPanel(AgentGuardrail g) {
@@ -219,9 +234,9 @@ class AgentGuardrailsPanel extends Div {
         SwitchButton audit = new SwitchButton(true, getTranslation("guard.audit"), null);
         audit.setEnabled(false);
         Div ctls = Dom.div("ap-ctls",
-                Dom.control(getTranslation("guard.injection"), getTranslation("guard.injection.sub"), injection),
-                Dom.control(getTranslation("guard.review"), getTranslation("guard.review.sub"), review),
-                Dom.control(getTranslation("guard.audit"), getTranslation("guard.audit.sub"), audit));
+                tagged(Dom.control(getTranslation("guard.injection"), getTranslation("guard.injection.sub"), injection), Enforcement.Topic.HIDDEN_INSTRUCTIONS),
+                tagged(Dom.control(getTranslation("guard.review"), getTranslation("guard.review.sub"), review), Enforcement.Topic.HUMAN_REVIEW),
+                tagged(Dom.control(getTranslation("guard.audit"), getTranslation("guard.audit.sub"), audit), Enforcement.Topic.AUDIT_LOG));
         return card("guard.safety", null, ctls);
     }
 
@@ -257,7 +272,8 @@ class AgentGuardrailsPanel extends Div {
         if (mine.isEmpty()) {
             rows.add(Dom.div("ap-rowempty", Dom.span(null, getTranslation("rules.agentEmpty"))));
         }
-        Div head = Dom.div("ap-panel-h", Dom.div(null, new H2(getTranslation("rules.custom.title")), para(getTranslation("rules.custom.sub"))));
+        Div head = Dom.div("ap-panel-h", Dom.div(null, new H2(getTranslation("rules.custom.title")), para(getTranslation("rules.custom.sub")),
+                tag(Enforcement.Topic.CUSTOM_RULES)));
         if (editable) {
             head.add(Dom.button("ap-btn ap-sm", VaadinIcon.PLUS, getTranslation("rules.addGuardrail"),
                     () -> ruleSheets.openPicker(agentId, agentName, this::refresh)));

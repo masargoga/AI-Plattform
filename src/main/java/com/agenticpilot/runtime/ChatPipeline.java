@@ -119,7 +119,7 @@ public class ChatPipeline {
     /** What phase one hands to the model call. */
     private record Prepared(UUID agentId, String agentName, UUID conversationId, UUID requestId, PromptAssembler.Prompt prompt, AgentGuardContext ctx,
                             List<String> notes, List<String> skillNames, com.agenticpilot.agent.ModelTier tier, Region region,
-                            List<Decision> decisions, List<Passage> passages, boolean draft) {
+                            List<Decision> decisions, List<Passage> passages, boolean draft, List<String> unavailable) {
     }
 
     /** Either a finished reply (stopped or refused) or a prepared model call. */
@@ -256,8 +256,10 @@ public class ChatPipeline {
         List<Passage> passages = new ArrayList<>();
         boolean flagged = false;
         AgentService.Content config = draft ? draftConfig(agent) : null;
-        List<Retriever.Retrieved> retrieved = draft ? retriever.retrieveFrom(config.sourceIds(), proceed.text(), PASSAGES)
-                : retriever.retrieve(agentId, proceed.text(), PASSAGES);
+        Collection<UUID> sourceIds = draft ? config.sourceIds()
+                : agent.getSources().stream().map(com.agenticpilot.source.DataSource::getId).toList();
+        List<Retriever.Retrieved> retrieved = retriever.retrieveFrom(sourceIds, proceed.text(), PASSAGES);
+        List<String> unavailable = retriever.unavailable(sourceIds);
         for (Retriever.Retrieved r : retrieved) {
             GuardrailEngine.PassageResult filtered = GuardrailEngine.filterPassage(r.text(), g.isHiddenInstructionProtection());
             flagged |= filtered.flagged();
@@ -278,10 +280,10 @@ public class ChatPipeline {
         com.agenticpilot.agent.ModelTier tier = draft && config.modelTier() != null ? config.modelTier() : agent.getModelTier();
         List<SkillInfo> skillInfos = skills.stream().map(s -> new SkillInfo(s.getName(), s.getTriggerText(), s.getInstructions(), s.getOutputFormat())).toList();
         PromptAssembler.Prompt prompt = PromptAssembler.assemble(agentName, instructions, g.getPurpose(), skillInfos, passages,
-                history, proceed.text(), gateway.maxPromptChars());
+                history, proceed.text(), gateway.maxPromptChars(), unavailable);
         touch(agent, conversation != null && history.isEmpty());
         return new Phase(null, new Prepared(agentId, agentName, conversation == null ? null : conversation.getId(), requestId, prompt, ctx,
-                proceed.notes(), skills.stream().map(Skill::getName).toList(), tier, g.getRegion(), decisions, prompt.usedPassages(), draft));
+                proceed.notes(), skills.stream().map(Skill::getName).toList(), tier, g.getRegion(), decisions, prompt.usedPassages(), draft, unavailable));
     }
 
     // ----- phase three: audit, storage -----
@@ -303,6 +305,7 @@ public class ChatPipeline {
             trace.add(new TraceItem(TraceItem.Type.SKILL, output.skillName()));
         }
         sourceNames.forEach(s -> trace.add(new TraceItem(TraceItem.Type.SOURCE, s)));
+        p.unavailable().forEach(s -> trace.add(new TraceItem(TraceItem.Type.NOTICE, "Source unavailable: " + s)));
         if (p.conversationId() != null) {
             Conversation c = conversations.findById(p.conversationId()).orElse(null);
             store(c, null, output.text(), trace);

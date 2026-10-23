@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "data_source")
@@ -47,6 +48,27 @@ public class DataSource extends AuditedEntity {
     @Column(name = "last_error", length = 500)
     private String lastError;
 
+    @Column(name = "owner_name", nullable = false, length = 80)
+    private String ownerName = "";
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "trust_level", nullable = false, length = 16)
+    private TrustLevel trustLevel = TrustLevel.INFORMATIONAL;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "on_failure", nullable = false, length = 16)
+    private OnFailure onFailure = OnFailure.USE_LAST_COPY;
+
+    /** A copy older than this many days counts as stale. */
+    @Column(name = "max_age_days", nullable = false)
+    private int maxAgeDays = 5;
+
+    @Column(name = "review_by")
+    private LocalDate reviewBy;
+
+    @Column(name = "version_info", nullable = false, length = 200)
+    private String versionInfo = "";
+
     @ManyToOne(optional = false, fetch = FetchType.EAGER)
     @JoinColumn(name = "created_by")
     private AppUser createdBy;
@@ -63,8 +85,33 @@ public class DataSource extends AuditedEntity {
     }
 
     public boolean isStale(Instant now) {
-        return lastSynced == null || Duration.between(lastSynced, now).compareTo(STALE_AFTER) > 0;
+        return lastSynced == null || Duration.between(lastSynced, now).compareTo(Duration.ofDays(maxAgeDays)) > 0;
     }
+
+    /** With STOP_AND_REPORT a source in error or too old is left out of answers. */
+    public boolean isUnavailable(Instant now) {
+        return onFailure == OnFailure.STOP_AND_REPORT && (status == SyncStatus.ERROR || isStale(now));
+    }
+
+    public boolean isReviewOverdue(LocalDate today) {
+        return reviewBy != null && reviewBy.isBefore(today);
+    }
+
+    public void applySettings(String ownerName, TrustLevel trustLevel, OnFailure onFailure, int maxAgeDays, LocalDate reviewBy, String versionInfo) {
+        this.ownerName = ownerName;
+        this.trustLevel = trustLevel;
+        this.onFailure = onFailure;
+        this.maxAgeDays = maxAgeDays;
+        this.reviewBy = reviewBy;
+        this.versionInfo = versionInfo;
+    }
+
+    public String getOwnerName() { return ownerName; }
+    public TrustLevel getTrustLevel() { return trustLevel; }
+    public OnFailure getOnFailure() { return onFailure; }
+    public int getMaxAgeDays() { return maxAgeDays; }
+    public LocalDate getReviewBy() { return reviewBy; }
+    public String getVersionInfo() { return versionInfo; }
 
     public String getName() { return name; }
     public SourceKind getKind() { return kind; }
