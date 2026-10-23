@@ -654,6 +654,10 @@ The model provider must support tool use: tool definitions in the request, tool 
 
 A user starts an approved agent with a customer id. The agent loads the skill it needs, looks up the customer in an attached spreadsheet, works through the data as the skill instructs, and ends with a result that meets its goal. Every step is visible in the run and written to the audit log without personal data. A run that does not finish stops at its limits with a clear reason. A blocked input, a forbidden source or a prompt injection in the data does not get through.
 
+### Built in M8
+
+Agent loop (`run` package: `RunExecutor`, `RunTools`, `RunPrompt`, `RunLauncher`, `RunService`, `RunMaintenance`), migration V8, tools `use_skill`, `finish`, `search_documents`, `read_document`, `lookup_rows` (all read-only), per-agent limits with ceilings (30 steps, 15 minutes, 500,000 tokens), guardrail checks on input, tool arguments and tool results, approval waiting, stop by user, watchdog for stale runs, retention (with "Do not store" only counts and stop reason remain), run panel in the agent screen (draft or approved version), and the run API (`POST /api/v1/agents/{id}/runs`, `GET /api/v1/runs/{id}`). Autonomy has no effect on runs yet because all tools are read-only. Verified against a mock Claude API; a run against the real API has not been done.
+
 ### Not in M8 (later)
 
 Tools that change things (email, tickets, writing records) and the approval flow for them, scheduled and event triggers, agent teams and handovers, memory between runs, live connectors (databases, APIs), vector search, several inputs per agent, using the loop in the test chat.

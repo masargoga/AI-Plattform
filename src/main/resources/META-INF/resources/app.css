@@ -269,3 +269,22 @@ vaadin-dialog-overlay.ap-sheet-overlay::part(content){padding:0;display:flex;fle
 .ap-who vaadin-button{margin-inline-start:-8px}
 .ap-tc-mode{padding:0 16px 8px}
 .ap-tc-mode:empty{display:none}
+
+/* M8: agent runs */
+.ap-work-mode{padding:0 0 10px}
+.ap-run-panel{display:flex;flex-direction:column;gap:12px;padding-bottom:16px}
+.ap-run-panel>*:not(.ap-tc-h){margin-left:16px;margin-right:16px}
+.ap-run-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.ap-timeline{display:flex;flex-direction:column;gap:6px;max-height:520px;overflow:auto}
+.ap-step{align-items:flex-start}
+.ap-step .ap-row-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ap-step-refused .ap-ico,.ap-step-guardrail .ap-ico{color:var(--ap-warn)}
+.ap-step-finish .ap-ico{color:var(--ap-good)}
+.ap-run-code{font:12px var(--ap-font-mono);color:var(--ap-ink-2);overflow-wrap:anywhere}
+.ap-run-text-small{font-size:13px;color:var(--ap-ink-2);white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto}
+.ap-run-text{white-space:pre-wrap;overflow-wrap:anywhere}
+.ap-run-result{border:1px solid var(--ap-line);border-radius:12px;background:var(--ap-surface-2);padding:12px 14px}
+.ap-run-result h2{font-size:16px;margin:0 0 6px}
+.ap-run-history h2{font-size:15px;margin:8px 0}
+.ap-run-panel>*{flex-shrink:0}
+.ap-run-result{margin-top:4px}

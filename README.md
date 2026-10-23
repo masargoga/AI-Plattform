@@ -46,6 +46,10 @@ Uploads: PDF, Word (`.docx`), text and Markdown, 25 MB per file. Only the extrac
 
 Skills and agents go through Draft, In review and Approved. An edit creates a draft next to the live version; another Admin approves it under Policies, Approvals (changed fields shown as old to new, plus test results for skills). Only approved versions run in the chat and the API. The owner or an Admin can test the draft in the test chat or with Try it. See `docs/SPEC.md` (M7) and `docs/RUNBOOK.md`.
 
+## Agent runs
+
+Give an agent a goal and an input label (for example "Customer ID"). In the agent screen switch from Test chat to Run, enter the input and start. The model picks skills and reads the attached sources step by step until it finishes or reaches the limits. Every step is shown. The same is available through `POST /api/v1/agents/{id}/runs` and `GET /api/v1/runs/{id}`. See `docs/SPEC.md` (M8) and `docs/RUNBOOK.md`.
+
 ## Files and spreadsheets
 
 Data sources accept PDF, Word (.docx), Excel (.xlsx), CSV, text and Markdown. Spreadsheets are read only: each row becomes a searchable line with its column names, so an agent can answer from a price list or a customer table.

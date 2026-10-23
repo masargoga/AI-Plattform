@@ -37,6 +37,15 @@ Scope: the whole application at the end of M5. Method: review of the code agains
 | 24 | Data quality | An outdated or failed source gave confident answers | Per source "stop and report" leaves it out and the model is told to say so |
 | 25 | Transparency | Guardrails looked all equally strong | Each control is labelled Platform, Model or Recorded only; human review is "Recorded only" until built |
 
+## M8 additions
+
+| # | Area | Finding | Resolution |
+|---|---|---|---|
+| 26 | Agent loop | Runaway loops and cost | Step, time and token limits with ceilings, concurrent-run caps, stop button, watchdog |
+| 27 | Prompt injection | Data returned by tools may contain instructions | Tool results are checked and masked by the guardrail engine and marked as data in the prompt; tools are read-only and limited to the agent's own sources and skills |
+| 28 | Privacy | Run input may hold personal data | Raw input stays in memory; the database stores the masked input; "Do not store" keeps counts only; audit entries carry no text |
+| 29 | Access | Runs start only for approved agents (drafts for owner or Admin) | `RunService` is method-secured; API keys are per agent |
+
 ## Accepted risks and follow-ups
 
 - Audit log is kept forever (M6 decision), so it grows; see the runbook for archiving.

@@ -206,6 +206,7 @@ class DemoData implements ApplicationRunner {
                        ModelTier tier, Instant lastRun, int runs, Set<Skill> skillSet, Set<DataSource> sourceSet) {
         Agent a = new Agent(name, owner);
         a.setJob(job);
+        a.setGoal(job);
         a.setInstructions(instructions);
         a.setStatus(status);
         a.setAutonomy(autonomy);

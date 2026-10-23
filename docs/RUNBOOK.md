@@ -152,6 +152,17 @@ Skills and agents are versioned. A new item is a draft; an edit of an approved i
 - **Data source settings** (trust level, behaviour on failure, maximum age, review-by date) change at once and are audited. A source set to "Stop and report" that is in error or older than its maximum age is left out of answers, and the answer says so.
 - **Skill test cases** run the model like "Try it", so they need a model connection and cost tokens (at most 10 cases per skill).
 
+## 10c. Agent runs (M8)
+
+An agent with a goal runs in a loop: the model asks for skills and data tools, the platform checks and runs them, and the result goes back to the model until it calls `finish` or a limit is hit.
+
+- **Limits:** per agent, default 12 steps / 5 minutes / 100,000 tokens, ceilings 30 / 15 minutes / 500,000. Settings `agenticpilot.run.*` cap concurrent runs (3 per agent, 10 in total); more are refused (HTTP 429/503).
+- **Stop reasons:** done, cannot complete, step/time/token limit, stopped by user, refused too often, blocked, denied, failed, interrupted.
+- **Stuck runs:** a watchdog marks runs without progress for 5 minutes as interrupted (also after a restart).
+- **Retention:** runs are deleted after the agent's retention period; with "Do not store" only counts and stop reason remain. The audit log holds decisions and counts, never input text.
+- **Cost:** every step is a model call. Lower the agent's limits to bound spend.
+- **SQL:** `select status, stop_reason, step_count, tokens_in + tokens_out from agent_run order by started_at desc limit 20;`
+
 ## 11. Troubleshooting
 
 | Symptom | Check |

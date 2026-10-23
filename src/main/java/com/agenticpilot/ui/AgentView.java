@@ -14,6 +14,7 @@ import com.agenticpilot.governance.Lifecycle;
 import com.agenticpilot.guardrail.AgentGuardrailService;
 import com.agenticpilot.guardrail.CustomRuleService;
 import com.agenticpilot.guardrail.WorkspacePolicyService;
+import com.agenticpilot.run.RunService;
 import com.agenticpilot.runtime.AgentChatService;
 import com.agenticpilot.skill.Skill;
 import com.agenticpilot.skill.SkillService;
@@ -68,6 +69,7 @@ public class AgentView extends Div implements BeforeEnterObserver {
     private final BackgroundExecutor executor;
     private final ApiKeyService apiKeys;
     private final ApprovalService approvals;
+    private final RunService runService;
     private final GovernanceWarnings warnings;
     private final CurrentUser currentUser;
 
@@ -75,6 +77,11 @@ public class AgentView extends Div implements BeforeEnterObserver {
     private boolean canEditAgent;
     private java.util.Map<UUID, Skill> skillsById = java.util.Map.of();
     private java.util.Map<UUID, DataSource> sourcesById = java.util.Map.of();
+    private RunPanel runPanel;
+    private NativeTextArea goal;
+    private Input inputLabel;
+    private Segmented<Boolean> workMode;
+    private boolean showRun;
     private AgentTestPanel testPanel;
     private UUID testPanelAgent;
     private UUID agentId;
@@ -92,7 +99,8 @@ public class AgentView extends Div implements BeforeEnterObserver {
 
     public AgentView(AgentService agents, SkillService skills, DataSourceService sources, AgentGuardrailService guardrails,
                      CustomRuleService rules, WorkspacePolicyService policies, CurrentUser currentUser, AgentChatService chat,
-                     BackgroundExecutor executor, ApiKeyService apiKeys, ApprovalService approvals, GovernanceWarnings warnings) {
+                     BackgroundExecutor executor, ApiKeyService apiKeys, ApprovalService approvals, GovernanceWarnings warnings, RunService runService) {
+        this.runService = runService;
         this.approvals = approvals;
         this.warnings = warnings;
         this.currentUser = currentUser;
@@ -226,6 +234,14 @@ public class AgentView extends Div implements BeforeEnterObserver {
         model.setEnabled(editable);
 
         boolean external = agent.getKind() == AgentKind.EXTERNAL;
+        goal = new NativeTextArea("agent-goal", cfg.goal(), 3, AgentService.GOAL_MAX);
+        goal.setEnabled(editable);
+        inputLabel = FormField.textInput("agent-input-label", cfg.inputLabel(), AgentService.INPUT_LABEL_MAX);
+        inputLabel.setEnabled(editable);
+        Div goalField = new FormField(getTranslation("agent.goal"), "agent-goal", goal, getTranslation("agent.goal.hint"));
+        Div labelField = new FormField(getTranslation("agent.inputLabel"), "agent-input-label", inputLabel, getTranslation("agent.inputLabel.hint"));
+        goalField.setVisible(agent.getKind() != AgentKind.EXTERNAL);
+        labelField.setVisible(agent.getKind() != AgentKind.EXTERNAL);
         Div instructionsField = new FormField(getTranslation("agent.instructions"), "agent-instructions", instructions, null);
         Div autonomyField = new FormField(getTranslation("agent.autonomy"), null, Dom.div("ap-field", autonomy, autonomyHint), null);
         Div modelField = new FormField(getTranslation("agent.model"), "agent-model", model, null);
@@ -235,14 +251,14 @@ public class AgentView extends Div implements BeforeEnterObserver {
         Div jobPanel = Dom.div("ap-card ap-panel",
                 Dom.div("ap-panel-h", Dom.div(null, new H2(getTranslation("agent.jobPanel")), para(null, getTranslation("agent.jobPanel.sub")))),
                 new FormField(getTranslation("agent.jobLine"), "agent-job", job, null),
-                instructionsField, autonomyField, modelField);
+                goalField, labelField, instructionsField, autonomyField, modelField);
         if (external) {
             setup.add(jobPanel);
         } else {
             for (String key : warnings.forAgent(cfg)) {
                 setup.add(Dom.div("ap-banner ap-warn", Dom.span(null, getTranslation(key))));
             }
-            setup.add(jobPanel, skillsPanel(), sourcesPanel());
+            setup.add(jobPanel, skillsPanel(), sourcesPanel(), limitsPanel());
         }
         if (canEditAgent) {
             setup.add(new ApiAccessPanel(agentId, agent.getKind(), apiKeys));
@@ -314,6 +330,44 @@ public class AgentView extends Div implements BeforeEnterObserver {
         return Dom.div("ap-card ap-panel", head, rows);
     }
 
+    /** Limits of a run. They are not part of the approved version: they apply at once and are audited. */
+    private Div limitsPanel() {
+        Input steps = FormField.textInput("limit-steps", String.valueOf(agent.getMaxSteps()), 3);
+        Input minutes = FormField.textInput("limit-minutes", String.valueOf(Math.max(1, agent.getMaxSeconds() / 60)), 3);
+        Input tokens = FormField.textInput("limit-tokens", String.valueOf(agent.getMaxTokens()), 7);
+        for (Input in : List.of(steps, minutes, tokens)) {
+            in.setType("number");
+            in.getElement().setAttribute("min", "1");
+            in.setEnabled(canEditAgent);
+        }
+        Div panel = Dom.div("ap-card ap-panel",
+                Dom.div("ap-panel-h", Dom.div(null, new H2(getTranslation("agent.limits")), para(null, getTranslation("agent.limits.sub",
+                        AgentService.RunLimitsCeiling.STEPS, AgentService.RunLimitsCeiling.SECONDS / 60, AgentService.RunLimitsCeiling.TOKENS)))),
+                new FormField(getTranslation("agent.limits.steps"), "limit-steps", steps, null),
+                new FormField(getTranslation("agent.limits.minutes"), "limit-minutes", minutes, null),
+                new FormField(getTranslation("agent.limits.tokens"), "limit-tokens", tokens, null));
+        if (canEditAgent) {
+            panel.add(Dom.button("ap-btn ap-sm", getTranslation("agent.limits.save"), () -> {
+                int s;
+                int m;
+                int t;
+                try {
+                    s = Integer.parseInt(steps.getValue().strip());
+                    m = Integer.parseInt(minutes.getValue().strip());
+                    t = Integer.parseInt(tokens.getValue().strip());
+                } catch (NumberFormatException e) {
+                    Feedback.error(getTranslation("error.invalidChoice"));
+                    return;
+                }
+                if (Feedback.run(this, () -> agents.setLimits(agentId, s, m * 60, t))) {
+                    Feedback.saved(this, "agent.limits.saved");
+                    reload();
+                }
+            }));
+        }
+        return panel;
+    }
+
     private void pickSkills() {
         var attached = cfg.skillIds();
         var items = skills.approved().stream().filter(s -> !attached.contains(s.getId()))
@@ -362,12 +416,24 @@ public class AgentView extends Div implements BeforeEnterObserver {
         }
         boolean draftAvailable = canEditAgent && (agents.openVersion(agentId).isPresent() || !agent.isUsable());
         testPanel.setModes(agent.isUsable(), draftAvailable);
-        return Dom.div("ap-col ap-test", testPanel);
+        if (runPanel == null || !agentId.equals(testPanelAgent)) {
+            runPanel = new RunPanel(agentId, runService);
+        }
+        runPanel.configure(cfg.inputLabel(), cfg.goal(), canEditAgent, agent.isUsable(), draftAvailable);
+        testPanel.setVisible(!showRun);
+        runPanel.setVisible(showRun);
+        workMode = new Segmented<>(List.of(new Segmented.Option<>(false, getTranslation("work.chat")), new Segmented.Option<>(true, getTranslation("work.run"))), showRun)
+                .onChange(v -> {
+                    showRun = v;
+                    testPanel.setVisible(!v);
+                    runPanel.setVisible(v);
+                });
+        return Dom.div("ap-col ap-test", Dom.div("ap-work-mode", workMode), testPanel, runPanel);
     }
 
     private void save() {
         if (Feedback.run(this, () -> agents.update(agentId, name.getValue(), job.getValue(), instructions.getValue(),
-                autonomy.getValue(), ModelTier.valueOf(model.getValue())))) {
+                autonomy.getValue(), ModelTier.valueOf(model.getValue()), goal.getValue(), inputLabel.getValue()))) {
             Feedback.saved(this, "agent.draftSaved");
             reload();
         }
