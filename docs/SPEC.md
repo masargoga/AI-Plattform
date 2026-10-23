@@ -527,6 +527,17 @@ Search by text (event, agent, actor), filter by agent, by outcome (as today) and
 
 A skill or agent change goes live only after a different Admin approves it, and the author cannot approve it. Chat and API run only approved versions. A reviewer sees every changed field and the test results before deciding. Existing data still works after the migration. Each step above is in the audit log, and the guardrail screen says honestly which controls are enforced by the platform.
 
+### Built in M7
+
+Everything above is implemented. Differences and details worth knowing:
+
+- The lifecycle is shared code (`governance` package: `GovernedService`, `ItemVersion`, `ApprovalService`); skills and agents extend it. Content that existed before M7 gets an approved version 1 at start (`ApprovedBaseline`).
+- Class-level security annotations are read from the class that declares a method, so the shared base class carries its own `@PreAuthorize` and `@Transactional`. The security matrix test now checks inherited methods too.
+- A data source "Settings" sheet holds the new fields; the warning rule shows on the agent page and in the review.
+- Skill test cases are limited to 10 per skill and 3 checks per case. Results are stored per version number.
+- Audit search treats `%` and `_` in the search text as plain characters.
+- Test cases without a model connection show "Not run".
+
 ### Not in M7 (later)
 
 Agent teams and handovers, triggers and scheduled runs, run logs with typed entries, agent limits for cost and runtime, skill inputs and output schemas, skills declaring the data sources they need, an Auditor role, skill export as files, and skills calling skills.
@@ -566,7 +577,7 @@ Agent teams and handovers, triggers and scheduled runs, run logs with typed entr
 - [ ] **Tools are not used by the model.** The prompt does not offer tool definitions and tool calls are not executed (section "Prompt assembly"). Search documents works because passages are always retrieved; Read spreadsheets works the same way; the other tools are stubs.
 - [ ] **Human review for decisions about people** is stored and shown but nothing enforces it in the runtime.
 - [ ] **Data subject requests: Find data** is not built (the screen says it arrives later). It must search all sources and stored conversations for the person.
-- [ ] **Delete** for agents, skills and data sources is missing (only custom rules can be deleted). Deleting an agent must follow the integrity rule: conversations, keys and links go, audit entries stay with the agent name.
+- [ ] **Delete** for data sources is missing. Agents and skills can be deleted since M7 (only drafts that never went live, and retired items; conversations, keys and links go with an agent, audit entries stay).
 - [ ] **Compliance records** are seeded only by demo data (on by default with the `h2` profile, off with `postgres`). A production database starts without the four example records; seed them with a migration or an Admin action.
 - [ ] **Browser tests** for key flows (named in the test strategy) do not exist yet.
 - [ ] Data model text: not every table has created and updated timestamps (join tables, `audit_entry` with `occurred_at`, `persistent_logins`, `job_lock`). Align the spec or the tables.

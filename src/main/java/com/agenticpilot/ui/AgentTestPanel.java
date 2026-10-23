@@ -68,7 +68,7 @@ class AgentTestPanel extends Div {
         modeSwitch.setVisible(false);
         draftBanner.getChildren().findFirst().ifPresent(c -> c.getElement().setText(getTranslation("chat.draftBanner")));
         draftBanner.setVisible(false);
-        add(Dom.div("ap-tc-h", titles, modeSwitch, Dom.button("ap-btn ap-ghost ap-sm", getTranslation("chat.reset"), this::reset)), draftBanner);
+        add(Dom.div("ap-tc-h", titles, Dom.button("ap-btn ap-ghost ap-sm", getTranslation("chat.reset"), this::reset)), Dom.div("ap-tc-mode", modeSwitch), draftBanner);
 
         messages.getElement().setAttribute("aria-live", "polite");
         messages.setId("chat-messages");

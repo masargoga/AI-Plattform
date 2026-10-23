@@ -27,6 +27,16 @@ Scope: the whole application at the end of M5. Method: review of the code agains
 | 19 | Supply chain | Outdated libraries | Dependabot (Maven, Actions, Docker) and CodeQL |
 | 20 | Container | Privileges | Non-root user 10001, no privilege escalation, all capabilities dropped, read-only root file system (production), seccomp RuntimeDefault, NetworkPolicy |
 
+## M7 additions
+
+| # | Area | Finding | Resolution |
+|---|---|---|---|
+| 21 | Authorization | The shared lifecycle base class had no method security: Spring reads class-level `@PreAuthorize` and `@Transactional` from the class that declares the method, so inherited methods were open and not transactional | Found by `SecurityMatrixTest` (now also checks inherited methods). The base class carries both annotations |
+| 22 | Four-eyes | Skills and agents change the behaviour of the runtime | Versions with approval by a different Admin, service check plus database constraint, only approved versions run, drafts are tested only by owner or Admin and the audit log says so |
+| 23 | API | A draft or retired agent could answer through its key | The API refuses non-approved agents (409 `agent_not_approved`) and lists none |
+| 24 | Data quality | An outdated or failed source gave confident answers | Per source "stop and report" leaves it out and the model is told to say so |
+| 25 | Transparency | Guardrails looked all equally strong | Each control is labelled Platform, Model or Recorded only; human review is "Recorded only" until built |
+
 ## Accepted risks and follow-ups
 
 - Audit log is kept forever (M6 decision), so it grows; see the runbook for archiving.

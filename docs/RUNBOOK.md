@@ -140,6 +140,18 @@ Run SQL with `psql` against the production database. Take a backup first.
 
 **Spreadsheets:** `.xlsx` and `.csv` files uploaded to a data source are read as text: the first row is the header and each further row becomes a line "Column: value; ...". Limits: 50,000 rows (`agenticpilot.upload.max-rows`), 100 columns, the upload size and character limits. Formulas show their stored result, dates show their stored number, macro files and old `.xls` are refused.
 
+## 10b. Approvals (M7)
+
+Skills and agents are versioned. A new item is a draft; an edit of an approved item is a draft next to the live version. The author submits it with a note, a different Admin approves or rejects (Policies, Approvals). Only approved versions run in chat and the API.
+
+- **Nobody can approve:** the author cannot approve their own change, so at least two active Admins are needed. The seed creates `admin` and `admin2`.
+- **After an upgrade to M7** every existing skill and agent becomes approved version 1 at the first start (log line "Created N approved baseline versions"). Nothing stops working.
+- **Pausing** an agent is immediate and needs no approval. **Retiring** a skill is blocked while an approved agent uses it; retiring an agent is blocked while it has active API keys.
+- **A change waits too long:** the author can withdraw it, or any other Admin can reject it with a comment. Open reviews are counted next to Policies.
+- **SQL view of reviews:** `select item_id, version_number, status, note from skill_version where status = 'PENDING';` (same for `agent_version`).
+- **Data source settings** (trust level, behaviour on failure, maximum age, review-by date) change at once and are audited. A source set to "Stop and report" that is in error or older than its maximum age is left out of answers, and the answer says so.
+- **Skill test cases** run the model like "Try it", so they need a model connection and cost tokens (at most 10 cases per skill).
+
 ## 11. Troubleshooting
 
 | Symptom | Check |

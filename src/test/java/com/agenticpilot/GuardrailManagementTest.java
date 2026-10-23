@@ -335,7 +335,7 @@ class GuardrailManagementTest {
         assertThat(AuditService.cell("=SUM(A1)")).isEqualTo("\"'=SUM(A1)\"");
         assertThat(AuditService.cell("say \"hi\"")).isEqualTo("\"say \"\"hi\"\"\"");
         AsUser.owner();
-        assertThat(audit.exportCsv(null)).startsWith("time,agent,actor,event,outcome");
+        assertThat(audit.exportCsv((AuditOutcome) null)).startsWith("time,agent,actor,event,outcome");
     }
 
     @Test

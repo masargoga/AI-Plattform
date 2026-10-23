@@ -53,9 +53,10 @@ class TestCasesPanel extends Div {
             NativeButton run = Dom.button("ap-btn ap-sm ap-primary", VaadinIcon.PLAY, getTranslation("tests.runAll"), null);
             run.setEnabled(!cases.isEmpty());
             run.addClickListener(e -> runAll(run));
-            head.add(Dom.div("ap-ah-actions", run, Dom.button("ap-btn ap-sm", VaadinIcon.PLUS, getTranslation("tests.add"), () -> openCase(null))));
+            add(head, Dom.div("ap-ah-actions", run, Dom.button("ap-btn ap-sm", VaadinIcon.PLUS, getTranslation("tests.add"), () -> openCase(null))));
+        } else {
+            add(head);
         }
-        add(head);
         Div rows = Dom.div("ap-rows");
         for (SkillTestService.CaseView cv : cases) {
             SkillTestCase c = cv.testCase();

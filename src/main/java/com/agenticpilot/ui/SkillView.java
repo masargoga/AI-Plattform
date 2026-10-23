@@ -136,7 +136,7 @@ public class SkillView extends Div implements BeforeEnterObserver {
         add(Dom.div("ap-ah", emb, Dom.div("ap-ah-main", name, sub), actions));
         add(new LifecycleBar(skills, skill, canEditSkill, currentUser.require().isAdmin(), currentUser.require().getId(), "skill",
                 this::reload, () -> UI.getCurrent().navigate(SkillsView.class)));
-        if (!editable) {
+        if (!canEditSkill) {
             add(Dom.div("ap-readonly-note", Dom.span(null, getTranslation("skill.readonly", skill.getCreatedBy().getDisplayName()))));
         }
 

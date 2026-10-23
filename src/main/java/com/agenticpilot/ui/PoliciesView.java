@@ -394,7 +394,8 @@ public class PoliciesView extends Div implements BeforeEnterObserver {
             auditTo = d;
             fill.run();
         });
-        card.add(outcome, Dom.div("ap-toolbar", search, agent, new FormField(getTranslation("audit.from"), "audit-from", from, null),
+        card.add(outcome, Dom.div("ap-toolbar ap-audit-filters", search, new FormField(getTranslation("audit.agent"), "audit-agent", agent, null),
+                new FormField(getTranslation("audit.from"), "audit-from", from, null),
                 new FormField(getTranslation("audit.to"), "audit-to", to, null)));
         card.add(entries);
         fill.run();

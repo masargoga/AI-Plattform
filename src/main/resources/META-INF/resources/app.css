@@ -244,3 +244,28 @@ vaadin-dialog-overlay.ap-sheet-overlay::part(content){padding:0;display:flex;fle
 .ap-enf-platform{background:var(--ap-good-soft);color:var(--ap-good)}
 .ap-enf-model{background:var(--ap-warn-soft);color:var(--ap-warn)}
 .ap-enf-recorded_only{background:var(--ap-bad-soft);color:var(--ap-bad)}
+
+/* M7: approval lifecycle, review and test cases */
+.ap-lifecycle{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:4px 0 14px}
+.ap-lifecycle-h{display:flex;align-items:center}
+.ap-lifecycle-actions{display:flex;flex-wrap:wrap;gap:8px}
+.ap-banner{padding:10px 14px;border-radius:10px;background:var(--ap-surface-2);border:1px solid var(--ap-line);border-left:3px solid var(--ap-accent);font-size:14px;color:var(--ap-ink)}
+.ap-banner.ap-warn{border-left-color:var(--ap-warn);background:var(--ap-warn-soft)}
+.ap-banner.ap-bad{border-left-color:var(--ap-bad);background:var(--ap-bad-soft)}
+.ap-lifecycle .ap-banner{flex:1 1 320px}
+.ap-changes{display:flex;flex-direction:column;gap:10px}
+.ap-diff-row{padding:10px 12px;border:1px solid var(--ap-line-2);border-radius:10px;background:var(--ap-surface-2);display:flex;flex-direction:column;gap:4px}
+.ap-diff-label{font:600 12px var(--ap-font-body);letter-spacing:.04em;text-transform:uppercase;color:var(--ap-ink-2)}
+.ap-diff-values{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;overflow-wrap:anywhere;white-space:pre-wrap}
+.ap-diff-old{text-decoration:line-through;color:var(--ap-ink-3)}
+.ap-diff-old::after{content:" \2192";text-decoration:none;display:inline-block;margin-left:6px;color:var(--ap-ink-2)}
+.ap-diff-new{font-weight:600}
+.ap-check-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:8px}
+.ap-ctl-inline{display:flex;align-items:center;gap:10px}
+.ap-panel-h .ap-btn{white-space:nowrap}
+.ap-audit-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.ap-audit-filters select,.ap-audit-filters input[type=date]{min-height:44px}
+.ap-who{align-items:flex-start}
+.ap-who vaadin-button{margin-inline-start:-8px}
+.ap-tc-mode{padding:0 16px 8px}
+.ap-tc-mode:empty{display:none}

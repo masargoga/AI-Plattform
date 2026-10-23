@@ -85,6 +85,28 @@ class ApiTest {
         return new Setup(agent, created.token(), created.key().getId());
     }
 
+    @Test
+    void agentsThatAreNotApprovedYetAreNotUsableThroughTheApi() throws Exception {
+        AsUser.owner();
+        Agent draft = agents.create("Draft " + System.nanoTime(), "Not yet approved.", List.of(), List.of());
+        String token = keys.create(draft.getId(), "early key").token();
+
+        assertThat(api.get("/api/v1/agents", token).json().get("agents").size()).isZero();
+        var message = api.post("/api/v1/agents/" + draft.getId() + "/messages", token, "{\"message\":\"hi\"}");
+        assertThat(message.status()).isEqualTo(409);
+        assertThat(message.json().get("code").asString()).isEqualTo("agent_not_approved");
+        var check = api.post("/api/v1/guardrails/check", token, "{\"agentId\":\"" + draft.getId() + "\",\"text\":\"hi\"}");
+        assertThat(check.status()).isEqualTo(409);
+        assertThat(model.calls).isEmpty();
+
+        Approve.agent(agents, draft.getId());
+        assertThat(api.get("/api/v1/agents", token).json().get("agents").size()).isEqualTo(1);
+        assertThat(api.post("/api/v1/agents/" + draft.getId() + "/messages", token, "{\"message\":\"hi\"}").status()).isEqualTo(200);
+
+        AsUser.admin();
+        assertThatThrownBy(() -> agents.retire(draft.getId())).hasMessage("error.agent.hasKeys"); // blocked while a key is active
+    }
+
     // ----- authentication -----
 
     @Test
