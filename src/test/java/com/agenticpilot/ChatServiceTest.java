@@ -35,6 +35,7 @@ import com.agenticpilot.source.DataSourceService;
 import com.agenticpilot.source.SourceKind;
 import com.agenticpilot.source.ingest.IngestionService;
 import com.agenticpilot.support.AsUser;
+import com.agenticpilot.support.Approve;
 import com.agenticpilot.support.FakeModelConfig;
 import com.agenticpilot.support.FakeModelConfig.FakeModel;
 import java.nio.charset.StandardCharsets;
@@ -88,7 +89,9 @@ class ChatServiceTest {
 
     private Agent newAgent(UUID... sourceIds) {
         AsUser.owner();
-        return agents.create(unique("Chat"), "Answers billing questions.", List.of(), List.of(sourceIds));
+        Agent agent = agents.create(unique("Chat"), "Answers billing questions.", List.of(), List.of(sourceIds));
+        Approve.agent(agents, agent.getId());
+        return agent;
     }
 
     private DataSource upload(String filename, String content) {
@@ -114,7 +117,9 @@ class ChatServiceTest {
         AsUser.owner();
         Skill skill = skills.create(new SkillService.Content("Answer from docs", SkillType.INSTRUCTION, "d", "A factual question", "Search before answering",
                 Set.of(), OutputFormat.PLAIN_TEXT));
+        Approve.skill(skills, skill.getId());
         Agent agent = agents.create(unique("Support"), "Answers billing questions.", List.of(skill.getId()), List.of(docs.getId()));
+        Approve.agent(agents, agent.getId());
         model.answer = r -> "Yes, they are prorated.\nSkill used: Answer from docs";
 
         ChatReply reply = chat.send(agent.getId(), null, "Can I change my plan mid-cycle? Are plans prorated?");
@@ -154,6 +159,7 @@ class ChatServiceTest {
         assertThat(chat.send(agent.getId(), first.conversationId(), "Admin joins").status()).isEqualTo(ChatReply.Status.ANSWERED);
         AsUser.admin2();
         Agent adminAgent = agents.create(unique("Other"), "j", List.of(), List.of());
+        Approve.agent(agents, adminAgent.getId());
         assertThatThrownBy(() -> chat.send(adminAgent.getId(), first.conversationId(), "Wrong agent")).isInstanceOf(AccessDeniedException.class);
     }
 
@@ -350,6 +356,7 @@ class ChatServiceTest {
         Agent agent = newAgent();
         AsUser.owner();
         agents.update(agent.getId(), agent.getName(), "j", "i", agent.getAutonomy(), com.agenticpilot.agent.ModelTier.FAST);
+        Approve.agent(agents, agent.getId());
         chat.send(agent.getId(), null, "Hello there");
         assertThat(model.last().model()).isEqualTo("claude-haiku-5-5");
     }
@@ -391,6 +398,7 @@ class ChatServiceTest {
     void skillTrialMasksInputBlocksSpecialDataAndUsesTheModel() {
         AsUser.owner();
         Skill skill = skills.create(new SkillService.Content(unique("Summarize"), SkillType.INSTRUCTION, "d", "t", "Write 3 bullets.", Set.of(), OutputFormat.BULLETS));
+        Approve.skill(skills, skill.getId());
         model.answer = r -> "- one\n- two";
         var ok = skillRun.run(skill.getId(), "Mail anna@mail.example the notes");
         assertThat(ok.ok()).isTrue();

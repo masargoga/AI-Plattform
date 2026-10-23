@@ -1,5 +1,6 @@
 package com.agenticpilot.runtime;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,4 +12,7 @@ public interface Retriever {
 
     /** Best match first. Only sources attached to the agent are searched. */
     List<Retrieved> retrieve(UUID agentId, String question, int limit);
+
+    /** Like {@link #retrieve(UUID, String, int)}, for an explicit set of sources (an agent draft that attaches other sources). */
+    List<Retrieved> retrieveFrom(Collection<UUID> sourceIds, String question, int limit);
 }

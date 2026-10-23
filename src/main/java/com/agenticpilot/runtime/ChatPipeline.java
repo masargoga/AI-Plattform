@@ -2,6 +2,10 @@ package com.agenticpilot.runtime;
 
 import com.agenticpilot.agent.Agent;
 import com.agenticpilot.agent.AgentRepository;
+import com.agenticpilot.agent.AgentService;
+import com.agenticpilot.agent.AgentVersionRepository;
+import com.agenticpilot.governance.Lifecycle;
+import com.agenticpilot.skill.SkillRepository;
 import com.agenticpilot.agent.AgentStatus;
 import com.agenticpilot.audit.AuditOutcome;
 import com.agenticpilot.audit.AuditService;
@@ -27,6 +31,7 @@ import com.agenticpilot.skill.Skill;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -65,6 +70,7 @@ public class ChatPipeline {
     public static final String NOTICE_EU = "EU-only: no EU endpoint";
     public static final String NOTICE_NO_MODEL = "No model connection";
     public static final String NOTICE_MODEL_DOWN = "Model unavailable";
+    public static final String NOTICE_NOT_APPROVED = "Agent not approved";
 
     /** Receives the parts of a streamed answer in the order they happen. */
     public interface StreamListener {
@@ -88,11 +94,14 @@ public class ChatPipeline {
     private final GuardrailRecorder recorder;
     private final ConversationRepository conversations;
     private final StoredMessageRepository messages;
+    private final SkillRepository skillRepository;
+    private final AgentVersionRepository agentVersions;
     private final TransactionTemplate tx;
 
     public ChatPipeline(AgentRepository agents, GuardrailReader guardrails, GuardrailContextFactory contexts, Retriever retriever,
                         ModelGateway gateway, AuditService audit, GuardrailRecorder recorder, ConversationRepository conversations,
-                        StoredMessageRepository messages, PlatformTransactionManager txManager) {
+                        StoredMessageRepository messages, SkillRepository skillRepository, AgentVersionRepository agentVersions,
+                        PlatformTransactionManager txManager) {
         this.agents = agents;
         this.guardrails = guardrails;
         this.contexts = contexts;
@@ -102,13 +111,15 @@ public class ChatPipeline {
         this.recorder = recorder;
         this.conversations = conversations;
         this.messages = messages;
+        this.skillRepository = skillRepository;
+        this.agentVersions = agentVersions;
         this.tx = new TransactionTemplate(txManager);
     }
 
     /** What phase one hands to the model call. */
     private record Prepared(UUID agentId, String agentName, UUID conversationId, UUID requestId, PromptAssembler.Prompt prompt, AgentGuardContext ctx,
                             List<String> notes, List<String> skillNames, com.agenticpilot.agent.ModelTier tier, Region region,
-                            List<Decision> decisions, List<Passage> passages) {
+                            List<Decision> decisions, List<Passage> passages, boolean draft) {
     }
 
     /** Either a finished reply (stopped or refused) or a prepared model call. */
@@ -190,6 +201,11 @@ public class ChatPipeline {
     private Phase prepare(ChatActor actor, UUID agentId, UUID conversationId, String text) {
         Agent agent = agents.findById(agentId).orElseThrow(() -> new NotFoundException("Agent"));
         UUID requestId = UUID.randomUUID();
+        boolean draft = actor.draft();
+        if (!draft && !agent.isUsable()) {
+            return done(new ChatReply(conversationId, Status.REFUSED, "This agent is not approved yet. A second Admin has to approve it before it can be used.",
+                    List.of(new TraceItem(TraceItem.Type.NOTICE, NOTICE_NOT_APPROVED)), null, List.of(), requestId));
+        }
         if (agent.getStatus() == AgentStatus.PAUSED) {
             return done(new ChatReply(conversationId, Status.REFUSED, "This agent is paused. Activate it to try it.",
                     List.of(new TraceItem(TraceItem.Type.NOTICE, NOTICE_PAUSED)), null, List.of(), requestId));
@@ -239,7 +255,10 @@ public class ChatPipeline {
         List<Decision> decisions = new ArrayList<>(proceed.decisions());
         List<Passage> passages = new ArrayList<>();
         boolean flagged = false;
-        for (Retriever.Retrieved r : retriever.retrieve(agentId, proceed.text(), PASSAGES)) {
+        AgentService.Content config = draft ? draftConfig(agent) : null;
+        List<Retriever.Retrieved> retrieved = draft ? retriever.retrieveFrom(config.sourceIds(), proceed.text(), PASSAGES)
+                : retriever.retrieve(agentId, proceed.text(), PASSAGES);
+        for (Retriever.Retrieved r : retrieved) {
             GuardrailEngine.PassageResult filtered = GuardrailEngine.filterPassage(r.text(), g.isHiddenInstructionProtection());
             flagged |= filtered.flagged();
             if (!filtered.text().isBlank()) {
@@ -250,13 +269,19 @@ public class ChatPipeline {
             decisions.add(Decision.of(Decision.Kind.HIDDEN_INSTRUCTION, AuditOutcome.MASKED, "Instruction-like text in a document was ignored"));
         }
 
-        List<Skill> skills = agent.getSkills().stream().sorted(Comparator.comparing(Skill::getName)).toList();
+        // Only approved skills are used. When testing a draft, the skills of the draft count, whatever their state (except retired).
+        Collection<Skill> candidates = draft ? skillRepository.findAllById(config.skillIds()) : agent.getSkills();
+        List<Skill> skills = candidates.stream().filter(sk -> draft ? sk.getLifecycle() != Lifecycle.RETIRED : sk.isUsable())
+                .sorted(Comparator.comparing(Skill::getName)).toList();
+        String agentName = draft ? config.name() : agent.getName();
+        String instructions = draft ? config.instructions() : agent.getInstructions();
+        com.agenticpilot.agent.ModelTier tier = draft && config.modelTier() != null ? config.modelTier() : agent.getModelTier();
         List<SkillInfo> skillInfos = skills.stream().map(s -> new SkillInfo(s.getName(), s.getTriggerText(), s.getInstructions(), s.getOutputFormat())).toList();
-        PromptAssembler.Prompt prompt = PromptAssembler.assemble(agent.getName(), agent.getInstructions(), g.getPurpose(), skillInfos, passages,
+        PromptAssembler.Prompt prompt = PromptAssembler.assemble(agentName, instructions, g.getPurpose(), skillInfos, passages,
                 history, proceed.text(), gateway.maxPromptChars());
         touch(agent, conversation != null && history.isEmpty());
-        return new Phase(null, new Prepared(agentId, agent.getName(), conversation == null ? null : conversation.getId(), requestId, prompt, ctx,
-                proceed.notes(), skills.stream().map(Skill::getName).toList(), agent.getModelTier(), g.getRegion(), decisions, prompt.usedPassages()));
+        return new Phase(null, new Prepared(agentId, agentName, conversation == null ? null : conversation.getId(), requestId, prompt, ctx,
+                proceed.notes(), skills.stream().map(Skill::getName).toList(), tier, g.getRegion(), decisions, prompt.usedPassages(), draft));
     }
 
     // ----- phase three: audit, storage -----
@@ -269,7 +294,7 @@ public class ChatPipeline {
         Set<String> sourceNames = new LinkedHashSet<>();
         p.passages().forEach(x -> sourceNames.add(x.sourceName() + " / " + x.documentTitle()));
         recorder.record(actor.auditName(), agent.getId(), agent.getName(), p.requestId(), all, null, null, actor.user());
-        audit.recordAs(actor.auditName(), agent.getId(), agent.getName(), "Answered a question" + (p.passages().isEmpty() ? ""
+        audit.recordAs(actor.auditName(), agent.getId(), agent.getName(), "Answered a question" + (p.draft() ? " (testing a draft)" : "") + (p.passages().isEmpty() ? ""
                         : " using " + p.passages().size() + (p.passages().size() == 1 ? " passage" : " passages")),
                 AuditOutcome.ALLOWED, null, Map.of("requestId", p.requestId().toString(), "inputTokens", response.inputTokens(), "outputTokens", response.outputTokens()));
 
@@ -286,6 +311,13 @@ public class ChatPipeline {
     }
 
     // ----- helpers -----
+
+    /** The configuration being edited: the open version, else the live fields. */
+    private AgentService.Content draftConfig(Agent agent) {
+        return agentVersions.findByItemIdAndOpenFlag(agent.getId(), 1)
+                .map(v -> JSON.readValue(v.getSnapshotJson(), AgentService.Content.class))
+                .orElseGet(() -> AgentService.contentOf(agent));
+    }
 
     private static Phase done(ChatReply reply) {
         return new Phase(reply, null);

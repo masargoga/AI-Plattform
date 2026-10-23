@@ -20,6 +20,7 @@ import com.agenticpilot.source.SourceKind;
 import com.agenticpilot.source.ingest.IngestionService;
 import com.agenticpilot.support.ApiClient;
 import com.agenticpilot.support.AsUser;
+import com.agenticpilot.support.Approve;
 import com.agenticpilot.support.FakeModelConfig;
 import com.agenticpilot.support.FakeModelConfig.FakeModel;
 import java.net.URI;
@@ -79,6 +80,7 @@ class ApiTest {
     private Setup newAgentWithKey() {
         AsUser.owner();
         Agent agent = agents.create("Api " + System.nanoTime(), "Answers questions.", List.of(), List.of());
+        Approve.agent(agents, agent.getId());
         var created = keys.create(agent.getId(), "test key");
         return new Setup(agent, created.token(), created.key().getId());
     }
@@ -124,6 +126,7 @@ class ApiTest {
         AsUser.admin();
         assertThat(keys.list(s.agent().getId())).hasSize(1);
         Agent adminAgent = agents.create("AdminAgent " + System.nanoTime(), "j", List.of(), List.of());
+        Approve.agent(agents, adminAgent.getId());
         AsUser.owner();
         assertThatThrownBy(() -> keys.create(adminAgent.getId(), "x")).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> keys.list(adminAgent.getId())).isInstanceOf(AccessDeniedException.class);
@@ -155,6 +158,7 @@ class ApiTest {
         DataSource docs = sources.create("ApiDocs " + System.nanoTime(), SourceKind.UPLOAD, "files");
         ingestion.addFile(docs.getId(), "faq.txt", "Plans are prorated per day of the billing cycle.".getBytes(StandardCharsets.UTF_8));
         Agent agent = agents.create("Api " + System.nanoTime(), "Answers billing questions.", List.of(), List.of(docs.getId()));
+        Approve.agent(agents, agent.getId());
         String token = keys.create(agent.getId(), "k").token();
         model.answer = r -> "Yes, prorated.";
 

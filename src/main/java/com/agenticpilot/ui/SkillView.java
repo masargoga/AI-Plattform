@@ -100,7 +100,7 @@ public class SkillView extends Div implements BeforeEnterObserver {
         name.addClassName("ap-title-input");
         name.getElement().setAttribute("aria-label", getTranslation("skill.name"));
         name.setEnabled(editable);
-        Paragraph sub = new Paragraph(getTranslation("skill.version", skill.getRevision()) + " · "
+        Paragraph sub = new Paragraph(getTranslation("skill.version", skill.getLiveVersion()) + " · "
                 + (users.isEmpty() ? getTranslation("skills.unused") : getTranslation("skills.usedBy", users.size()))
                 + " · " + getTranslation("skill.createdBy", skill.getCreatedBy().getDisplayName()));
         sub.addClassName("ap-sub");
@@ -235,7 +235,7 @@ public class SkillView extends Div implements BeforeEnterObserver {
     private void save() {
         var content = new SkillService.Content(name.getValue(), type.getValue(), description.getValue(), trigger.getValue(),
                 instructions.getValue(), Set.copyOf(tools), output.getValue());
-        if (Feedback.run(this, () -> skills.update(skillId, content))) {
+        if (Feedback.run(this, () -> skills.saveDraft(skillId, content))) {
             Feedback.saved(this, "skill.saved");
             reload();
         }

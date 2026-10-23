@@ -1,6 +1,7 @@
 package com.agenticpilot.runtime;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -34,8 +35,15 @@ public class KeywordRetriever implements Retriever {
     @Override
     @Transactional(readOnly = true)
     public List<Retrieved> retrieve(UUID agentId, String question, int limit) {
+        return retrieveFrom(jdbc.query("select source_id from agent_source where agent_id = ?", (rs, n) -> rs.getObject(1, UUID.class), agentId),
+                question, limit);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Retrieved> retrieveFrom(Collection<UUID> sourceIds, String question, int limit) {
         List<String> terms = terms(question);
-        if (terms.isEmpty() || limit <= 0) {
+        if (terms.isEmpty() || limit <= 0 || sourceIds.isEmpty()) {
             return List.of();
         }
         StringBuilder sql = new StringBuilder("""
@@ -43,10 +51,9 @@ public class KeywordRetriever implements Retriever {
                 from chunk c
                 join source_document d on d.id = c.document_id
                 join data_source s on s.id = d.source_id
-                join agent_source a on a.source_id = s.id
-                where a.agent_id = ? and (""");
-        List<Object> args = new ArrayList<>();
-        args.add(agentId);
+                where s.id in (""");
+        List<Object> args = new ArrayList<>(sourceIds);
+        sql.append(String.join(", ", java.util.Collections.nCopies(sourceIds.size(), "?"))).append(") and (");
         for (int i = 0; i < terms.size(); i++) {
             sql.append(i == 0 ? "" : " or ").append("lower(c.text) like ? escape '\\'");
             args.add("%" + escapeLike(terms.get(i)) + "%");

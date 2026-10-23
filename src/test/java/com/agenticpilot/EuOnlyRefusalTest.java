@@ -11,6 +11,7 @@ import com.agenticpilot.guardrail.Region;
 import com.agenticpilot.runtime.AgentChatService;
 import com.agenticpilot.runtime.ChatReply;
 import com.agenticpilot.support.AsUser;
+import com.agenticpilot.support.Approve;
 import com.agenticpilot.support.FakeModelConfig;
 import com.agenticpilot.support.FakeModelConfig.FakeModel;
 import java.util.List;
@@ -43,6 +44,7 @@ class EuOnlyRefusalTest {
         model.reset();
         AsUser.admin();
         Agent euAgent = agents.create("EU agent " + System.nanoTime(), "j", List.of(), List.of());
+        Approve.agent(agents, euAgent.getId());
         ChatReply refused = chat.send(euAgent.getId(), null, "Hello there");
         assertThat(refused.status()).isEqualTo(ChatReply.Status.REFUSED);
         assertThat(refused.text()).contains("EU-only");

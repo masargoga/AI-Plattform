@@ -6,6 +6,7 @@ import com.agenticpilot.agent.AgentService;
 import com.agenticpilot.api.ApiKeyService;
 import com.agenticpilot.support.ApiClient;
 import com.agenticpilot.support.AsUser;
+import com.agenticpilot.support.Approve;
 import com.agenticpilot.support.FakeModelConfig;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -35,6 +36,7 @@ class ApiRateLimitTest {
     void callsAreLimitedPerKeyAndTheLimitsAreReported() throws Exception {
         AsUser.owner();
         var agent = agents.create("Limited " + System.nanoTime(), "j", List.of(), List.of());
+        Approve.agent(agents, agent.getId());
         String keyA = keys.create(agent.getId(), "a").token();
         String keyB = keys.create(agent.getId(), "b").token();
         ApiClient api = new ApiClient(port);

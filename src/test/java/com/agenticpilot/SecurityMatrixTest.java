@@ -47,8 +47,8 @@ class SecurityMatrixTest {
         List<Object[]> found = new ArrayList<>();
         for (Map.Entry<String, Object> bean : context.getBeansWithAnnotation(PreAuthorize.class).entrySet()) {
             Class<?> target = AopUtils.getTargetClass(bean.getValue());
-            for (Method m : target.getDeclaredMethods()) {
-                if (Modifier.isPublic(m.getModifiers()) && !Modifier.isStatic(m.getModifiers()) && !m.isSynthetic()) {
+            for (Method m : target.getMethods()) {
+                if (m.getDeclaringClass() != Object.class && !Modifier.isStatic(m.getModifiers()) && !m.isSynthetic()) {
                     found.add(new Object[] {bean.getValue(), m});
                 }
             }

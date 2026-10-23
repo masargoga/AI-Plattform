@@ -78,7 +78,7 @@ public class SkillsView extends Div {
         H3 title = new H3(s.getName());
         title.getStyle().set("margin", "0");
         card.add(Dom.div("ap-sc-top", Dom.span("ap-badge ap-t-" + s.getType().name().charAt(0) + s.getType().name().substring(1).toLowerCase(),
-                        Labels.of(this, s.getType())), Dom.span("ap-num", "v" + s.getRevision())),
+                        Labels.of(this, s.getType())), Dom.span("ap-num", "v" + s.getLiveVersion())),
                 Dom.div(null, title, para(s.getDescription().isEmpty() ? getTranslation("skills.noDescription") : s.getDescription())));
 
         List<Agent> users = agents.usingSkill(s.getId());

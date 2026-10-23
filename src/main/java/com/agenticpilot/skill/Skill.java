@@ -1,6 +1,8 @@
 package com.agenticpilot.skill;
 
 import com.agenticpilot.common.AuditedEntity;
+import com.agenticpilot.governance.Governed;
+import com.agenticpilot.governance.Lifecycle;
 import com.agenticpilot.user.AppUser;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -17,7 +19,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "skill")
-public class Skill extends AuditedEntity {
+public class Skill extends AuditedEntity implements Governed {
 
     @Column(nullable = false, length = 48)
     private String name;
@@ -39,9 +41,17 @@ public class Skill extends AuditedEntity {
     @Column(name = "output_format", nullable = false, length = 16)
     private OutputFormat outputFormat = OutputFormat.PLAIN_TEXT;
 
-    /** Shown as v1, v2... Raised on every save. */
-    @Column(nullable = false)
-    private int revision = 1;
+    /** The number of the live (approved) version, shown as v1, v2... Zero until the first version is approved. */
+    @Column(name = "live_version", nullable = false)
+    private int liveVersion = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "lifecycle_status", nullable = false, length = 16)
+    private Lifecycle lifecycle = Lifecycle.DRAFT;
+
+    /** Rules from this skill matter for compliance: its agents should rest on authoritative sources. */
+    @Column(name = "compliance_relevant", nullable = false)
+    private boolean complianceRelevant;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "skill_tool", joinColumns = @JoinColumn(name = "skill_id"))
@@ -73,8 +83,13 @@ public class Skill extends AuditedEntity {
     public void setInstructions(String instructions) { this.instructions = instructions; }
     public OutputFormat getOutputFormat() { return outputFormat; }
     public void setOutputFormat(OutputFormat outputFormat) { this.outputFormat = outputFormat; }
-    public int getRevision() { return revision; }
-    public void raiseRevision() { revision++; }
+    @Override public int getLiveVersion() { return liveVersion; }
+    @Override public void setLiveVersion(int liveVersion) { this.liveVersion = liveVersion; }
+    @Override public Lifecycle getLifecycle() { return lifecycle; }
+    @Override public void setLifecycle(Lifecycle lifecycle) { this.lifecycle = lifecycle; }
+    @Override public com.agenticpilot.user.AppUser getResponsible() { return createdBy; }
+    public boolean isComplianceRelevant() { return complianceRelevant; }
+    public void setComplianceRelevant(boolean complianceRelevant) { this.complianceRelevant = complianceRelevant; }
     public Set<Tool> getTools() { return tools; }
     public void setTools(Set<Tool> tools) { this.tools = tools.isEmpty() ? EnumSet.noneOf(Tool.class) : EnumSet.copyOf(tools); }
     public AppUser getCreatedBy() { return createdBy; }

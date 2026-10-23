@@ -81,7 +81,10 @@ class ApiControllers {
     @ApiResponse(responseCode = "200", description = "The agents")
     @Transactional(readOnly = true)
     public AgentList listAgents(@AuthenticationPrincipal ApiPrincipal principal) {
-        Agent agent = agent(principal, principal.agentId());
+        Agent agent = agents.findById(principal.agentId()).filter(Agent::isUsable).orElse(null);
+        if (agent == null) {
+            return new AgentList(List.of());
+        }
         return new AgentList(List.of(new AgentSummary(agent.getId(), agent.getName(), agent.getJob(),
                 agent.getKind().name().toLowerCase(Locale.ROOT), agent.getStatus().name().toLowerCase(Locale.ROOT))));
     }
@@ -256,6 +259,10 @@ class ApiControllers {
         if (!principal.agentId().equals(agentId)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "forbidden", "This key belongs to another agent.");
         }
-        return agents.findById(agentId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "not_found", "No such agent."));
+        Agent agent = agents.findById(agentId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "not_found", "No such agent."));
+        if (!agent.isUsable()) {
+            throw new ApiException(HttpStatus.CONFLICT, "agent_not_approved", "This agent is not approved yet or has been retired.");
+        }
+        return agent;
     }
 }

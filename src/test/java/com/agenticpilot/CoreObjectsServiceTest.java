@@ -85,22 +85,22 @@ class CoreObjectsServiceTest {
     }
 
     @Test
-    void skillSavingRaisesVersionAndIsLimitedToCreatorOrAdmin() {
+    void skillDraftsAreLimitedToCreatorOrAdmin() {
         AsUser.owner();
         Skill s = skills.create(content("Skill " + System.nanoTime()));
-        assertThat(s.getRevision()).isEqualTo(1);
-        assertThat(skills.update(s.getId(), content(s.getName())).getRevision()).isEqualTo(2);
+        assertThat(s.getLiveVersion()).isZero();
+        skills.saveDraft(s.getId(), content(s.getName()));
 
         AsUser.admin();
-        assertThat(skills.update(s.getId(), content(s.getName())).getRevision()).isEqualTo(3);
+        skills.saveDraft(s.getId(), content(s.getName()));
 
         AsUser.owner();
         Skill adminSkill;
         AsUser.admin();
         adminSkill = skills.create(content("Admin skill " + System.nanoTime()));
-        AsUser.owner();
         UUID id = adminSkill.getId();
-        assertThatThrownBy(() -> skills.update(id, content("Hijack"))).isInstanceOf(AccessDeniedException.class);
+        AsUser.owner();
+        assertThatThrownBy(() -> skills.saveDraft(id, content("Hijack"))).isInstanceOf(AccessDeniedException.class);
     }
 
     @Test

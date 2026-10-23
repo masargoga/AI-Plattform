@@ -15,6 +15,7 @@ import com.agenticpilot.source.SourceKind;
 import com.agenticpilot.source.SourceSyncService;
 import com.agenticpilot.source.SyncStatus;
 import com.agenticpilot.support.AsUser;
+import com.agenticpilot.support.Approve;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -112,6 +113,7 @@ class WebsiteSyncTest {
         AsUser.owner();
         DataSource site = sources.create("Site " + System.nanoTime(), SourceKind.WEBSITE, base);
         Agent agent = agents.create("Web " + System.nanoTime(), "j", List.of(), List.of(site.getId()));
+        Approve.agent(agents, agent.getId());
 
         DataSource synced = sync.runSync(site.getId(), "owner");
         assertThat(synced.getStatus()).isEqualTo(SyncStatus.SYNCED);

@@ -1,6 +1,8 @@
 package com.agenticpilot.agent;
 
 import com.agenticpilot.common.AuditedEntity;
+import com.agenticpilot.governance.Governed;
+import com.agenticpilot.governance.Lifecycle;
 import com.agenticpilot.skill.Skill;
 import com.agenticpilot.source.DataSource;
 import com.agenticpilot.user.AppUser;
@@ -20,7 +22,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "agent")
-public class Agent extends AuditedEntity {
+public class Agent extends AuditedEntity implements Governed {
 
     @Column(nullable = false, length = 40)
     private String name;
@@ -46,6 +48,14 @@ public class Agent extends AuditedEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "model_tier", nullable = false, length = 16)
     private ModelTier modelTier = ModelTier.BALANCED;
+
+    /** The number of the live (approved) version. Zero until the first version is approved. */
+    @Column(name = "live_version", nullable = false)
+    private int liveVersion = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "lifecycle_status", nullable = false, length = 16)
+    private Lifecycle lifecycle = Lifecycle.DRAFT;
 
     @Column(name = "last_run")
     private Instant lastRun;
@@ -96,6 +106,11 @@ public class Agent extends AuditedEntity {
     public AppUser getOwner() { return owner; }
     public Set<Skill> getSkills() { return skills; }
     public Set<DataSource> getSources() { return sources; }
+    @Override public int getLiveVersion() { return liveVersion; }
+    @Override public void setLiveVersion(int liveVersion) { this.liveVersion = liveVersion; }
+    @Override public Lifecycle getLifecycle() { return lifecycle; }
+    @Override public void setLifecycle(Lifecycle lifecycle) { this.lifecycle = lifecycle; }
+    @Override public AppUser getResponsible() { return owner; }
 
     public void recordRun(Instant when, int runs) {
         this.lastRun = when;

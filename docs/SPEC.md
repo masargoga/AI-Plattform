@@ -440,7 +440,7 @@ M7 takes the approval ideas of the custom rules (versions, a note, a different A
 | Item | Fields in a version |
 | --- | --- |
 | Skill | name, type, description, trigger text, instructions, tools, output format, compliance-relevant flag |
-| Agent | name, job, instructions, kind, autonomy, model tier, skills, data sources |
+| Agent | name, job, instructions, autonomy, model tier, skills, data sources (the kind cannot be changed) |
 
 Not versioned: an agent's guardrail controls (they are bounded by workspace policy, change at once and are audited), the owner, the run state and counters, test cases (see below).
 
@@ -533,9 +533,9 @@ Agent teams and handovers, triggers and scheduled runs, run logs with typed entr
 
 ### Open questions for M7
 
-- [ ] Agent guardrail controls are not versioned (see above). Should loosening a control below the recommended value need approval?
-- [ ] A new agent cannot be activated before its first approval. Is that acceptable for quick experiments, or should owners be able to run their own drafts in the test chat only (as proposed)?
-- [ ] Should rejecting require the author to start a new draft, or may they continue editing the rejected version? Proposal: a rejected version stays as history and the author continues in a new draft that starts from it.
+- [x] Agent guardrail controls are not versioned (see above). Should loosening a control below the recommended value need approval? **Decided: No; they change at once and are audited.**
+- [x] A new agent cannot be activated before its first approval. Is that acceptable for quick experiments, or should owners be able to run their own drafts in the test chat only (as proposed)? **Decided: As proposed; owners test their draft in the test chat, the API runs approved agents only.**
+- [x] Should rejecting require the author to start a new draft, or may they continue editing the rejected version? **Decided: A rejected or withdrawn version stays as history; the author continues in a new draft that starts from it.**
 
 ## Assumptions and open questions
 

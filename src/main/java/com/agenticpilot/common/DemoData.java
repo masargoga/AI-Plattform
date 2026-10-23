@@ -191,9 +191,8 @@ class DemoData implements ApplicationRunner {
         s.setInstructions(instructions);
         s.setOutputFormat(format);
         s.setTools(tools.length == 0 ? EnumSet.noneOf(Tool.class) : EnumSet.of(tools[0], tools));
-        for (int i = 1; i < revision; i++) {
-            s.raiseRevision();
-        }
+        s.setLiveVersion(revision);
+        s.setLifecycle(com.agenticpilot.governance.Lifecycle.APPROVED);
         return skills.save(s);
     }
 
@@ -214,6 +213,8 @@ class DemoData implements ApplicationRunner {
         a.recordRun(lastRun, runs);
         a.getSkills().addAll(skillSet);
         a.getSources().addAll(sourceSet);
+        a.setLiveVersion(1);
+        a.setLifecycle(com.agenticpilot.governance.Lifecycle.APPROVED);
         return agents.save(a);
     }
 
