@@ -56,13 +56,26 @@ public class ModelGateway {
         return stream(tier, region, system, messages, null);
     }
 
+    /** One turn of an agent run: the model may answer with text or with tool requests. Not streamed. */
+    public ModelResponse generate(ModelTier tier, Region region, String system, List<ChatMessage> messages, List<com.agenticpilot.runtime.provider.ToolDefinition> tools) {
+        java.util.Optional<Refusal> refusal = refusalFor(region);
+        if (refusal.isPresent()) {
+            throw new ModelException("Model call refused: " + refusal.get());
+        }
+        int chars = system.length() + messages.stream().mapToInt(ChatMessage::size).sum();
+        if (chars > properties.maxPromptChars()) {
+            throw new ModelException("The prompt is too large");
+        }
+        return provider.generate(new ModelRequest(modelName(tier), system, messages, tools, properties.maxTokens(), properties.timeout()));
+    }
+
     /** Calls the model; with a consumer the answer is streamed to it as it arrives. */
     public ModelResponse stream(ModelTier tier, Region region, String system, List<ChatMessage> messages, Consumer<String> onText) {
         java.util.Optional<Refusal> refusal = refusalFor(region);
         if (refusal.isPresent()) {
             throw new ModelException("Model call refused: " + refusal.get());
         }
-        int chars = system.length() + messages.stream().mapToInt(m -> m.text().length()).sum();
+        int chars = system.length() + messages.stream().mapToInt(ChatMessage::size).sum();
         if (chars > properties.maxPromptChars()) {
             throw new ModelException("The prompt is too large");
         }

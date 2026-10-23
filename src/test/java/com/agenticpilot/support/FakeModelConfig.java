@@ -20,12 +20,37 @@ public class FakeModelConfig {
         public volatile boolean configured = true;
         public volatile boolean failing = false;
         public volatile Function<ModelRequest, String> answer = r -> "Fake answer";
+        /** When set, decides the whole response (text, tool requests, token counts). Used to script agent runs. */
+        public volatile Function<ModelRequest, ModelResponse> responder;
 
         public void reset() {
             calls.clear();
             configured = true;
             failing = false;
             answer = r -> "Fake answer";
+            responder = null;
+        }
+
+        /** The next responses in order; the last one repeats. */
+        public void script(ModelResponse... responses) {
+            java.util.concurrent.atomic.AtomicInteger next = new java.util.concurrent.atomic.AtomicInteger();
+            responder = r -> responses[Math.min(next.getAndIncrement(), responses.length - 1)];
+        }
+
+        public static ModelResponse tool(String name, String json) {
+            return new ModelResponse("", List.of(new com.agenticpilot.runtime.provider.ToolCall("call_" + System.nanoTime(), name, json)), 100, 20);
+        }
+
+        public static ModelResponse tools(com.agenticpilot.runtime.provider.ToolCall... calls) {
+            return new ModelResponse("", List.of(calls), 100, 20);
+        }
+
+        public static com.agenticpilot.runtime.provider.ToolCall call(String name, String json) {
+            return new com.agenticpilot.runtime.provider.ToolCall("call_" + System.nanoTime(), name, json);
+        }
+
+        public static ModelResponse text(String text) {
+            return new ModelResponse(text, List.of(), 100, 20);
         }
 
         public ModelRequest last() {
@@ -42,6 +67,9 @@ public class FakeModelConfig {
             calls.add(request);
             if (failing) {
                 throw new ModelException("The model call failed (HTTP 500, api_error)");
+            }
+            if (responder != null) {
+                return responder.apply(request);
             }
             return new ModelResponse(answer.apply(request), List.of(), 10, 5);
         }

@@ -43,8 +43,15 @@ public class AgentService extends GovernedService<Agent, AgentVersion, AgentServ
 
     /** The configuration of an agent, also what a version stores. */
     public record Content(String name, String job, String instructions, Autonomy autonomy, ModelTier modelTier,
-                          Set<UUID> skillIds, Set<UUID> sourceIds) {
+                          Set<UUID> skillIds, Set<UUID> sourceIds, String goal, String inputLabel) {
+
+        public Content(String name, String job, String instructions, Autonomy autonomy, ModelTier modelTier, Set<UUID> skillIds, Set<UUID> sourceIds) {
+            this(name, job, instructions, autonomy, modelTier, skillIds, sourceIds, "", "Task");
+        }
     }
+
+    public static final int GOAL_MAX = 1000;
+    public static final int INPUT_LABEL_MAX = 40;
 
     private final AgentRepository agents;
     private final AgentVersionRepository agentVersions;
@@ -129,11 +136,49 @@ public class AgentService extends GovernedService<Agent, AgentVersion, AgentServ
     /** Stores the settings in the draft; the live version stays active until the draft is approved. */
     public Agent update(UUID id, String name, String job, String instructions, Autonomy autonomy, ModelTier model) {
         Content current = editable(id);
+        return update(id, name, job, instructions, autonomy, model, current.goal(), current.inputLabel());
+    }
+
+    /** Like {@link #update(UUID, String, String, String, Autonomy, ModelTier)} with the goal and the label of the run input. */
+    public Agent update(UUID id, String name, String job, String instructions, Autonomy autonomy, ModelTier model, String goal, String inputLabel) {
+        Content current = editable(id);
         if (instructions != null && instructions.length() > INSTRUCTIONS_MAX) {
             throw new InvalidInputException("error.tooLong", INSTRUCTIONS_MAX);
         }
+        String g = goal == null ? "" : goal.strip();
+        if (g.length() > GOAL_MAX) {
+            throw new InvalidInputException("error.tooLong", GOAL_MAX);
+        }
+        String label = inputLabel == null || inputLabel.isBlank() ? "Task" : inputLabel.strip();
+        if (label.length() > INPUT_LABEL_MAX) {
+            throw new InvalidInputException("error.tooLong", INPUT_LABEL_MAX);
+        }
         return saveDraftInternal(id, new Content(validName(name), validJob(job), instructions == null ? "" : instructions, autonomy, model,
-                current.skillIds(), current.sourceIds()));
+                current.skillIds(), current.sourceIds(), g, label));
+    }
+
+    /** The limits of a run. Not versioned: they take effect at once and are audited. They cannot exceed the ceilings. */
+    public Agent setLimits(UUID id, int maxSteps, int maxSeconds, int maxTokens) {
+        Agent agent = get(id);
+        currentUser.requireEdit(agent.getOwner());
+        if (maxSteps < 1 || maxSteps > RunLimitsCeiling.STEPS || maxSeconds < 10 || maxSeconds > RunLimitsCeiling.SECONDS
+                || maxTokens < 1000 || maxTokens > RunLimitsCeiling.TOKENS) {
+            throw new InvalidInputException("error.agent.limits", RunLimitsCeiling.STEPS, RunLimitsCeiling.SECONDS / 60, RunLimitsCeiling.TOKENS);
+        }
+        agent.setLimits(maxSteps, maxSeconds, maxTokens);
+        audit.record(agent.getId(), agent.getName(), "Run limits changed", AuditOutcome.ALLOWED, null,
+                Map.of("maxSteps", maxSteps, "maxSeconds", maxSeconds, "maxTokens", maxTokens));
+        return agent;
+    }
+
+    /** The hard ceilings of the run limits; an agent cannot raise its limits above them. */
+    public static final class RunLimitsCeiling {
+        public static final int STEPS = 30;
+        public static final int SECONDS = 900;
+        public static final int TOKENS = 500_000;
+
+        private RunLimitsCeiling() {
+        }
     }
 
     /** Pause and activate take effect at once. Only an approved agent can be active. */
@@ -169,7 +214,7 @@ public class AgentService extends GovernedService<Agent, AgentVersion, AgentServ
     private Agent changeSets(UUID id, java.util.function.Consumer<Content> change, Void unused) {
         Content current = editable(id);
         Content copy = new Content(current.name(), current.job(), current.instructions(), current.autonomy(), current.modelTier(),
-                new LinkedHashSet<>(current.skillIds()), new LinkedHashSet<>(current.sourceIds()));
+                new LinkedHashSet<>(current.skillIds()), new LinkedHashSet<>(current.sourceIds()), current.goal(), current.inputLabel());
         change.accept(copy);
         return saveDraftInternal(id, copy);
     }
@@ -182,7 +227,8 @@ public class AgentService extends GovernedService<Agent, AgentVersion, AgentServ
     public static Content contentOf(Agent a) {
         return new Content(a.getName(), a.getJob(), a.getInstructions(), a.getAutonomy(), a.getModelTier(),
                 a.getSkills().stream().map(Skill::getId).collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new)),
-                a.getSources().stream().map(DataSource::getId).collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new)));
+                a.getSources().stream().map(DataSource::getId).collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new)),
+                a.getGoal(), a.getInputLabel());
     }
 
     @Override
@@ -192,6 +238,8 @@ public class AgentService extends GovernedService<Agent, AgentVersion, AgentServ
         agent.setInstructions(c.instructions() == null ? "" : c.instructions());
         agent.setAutonomy(c.autonomy() == null ? Autonomy.ASK : c.autonomy());
         agent.setModelTier(c.modelTier() == null ? ModelTier.BALANCED : c.modelTier());
+        agent.setGoal(c.goal() == null ? "" : c.goal());
+        agent.setInputLabel(c.inputLabel() == null || c.inputLabel().isBlank() ? "Task" : c.inputLabel());
         if (agent.getKind() == AgentKind.MANAGED) {
             agent.getSkills().clear();
             skills.findAllById(c.skillIds() == null ? Set.<UUID>of() : c.skillIds()).forEach(s -> agent.getSkills().add(s));

@@ -62,6 +62,19 @@ public final class GuardrailEngine {
     // ----- before the model -----
 
     public static InputResult checkInput(String text, AgentGuardContext ctx) {
+        return check(text, ctx, true);
+    }
+
+    /**
+     * The same checks for text that comes from a data source during an agent run. The built-in "actions that need approval"
+     * look at what a person asks for, not at data, so they are skipped; special categories, personal data and custom
+     * rules apply.
+     */
+    public static InputResult checkData(String text, AgentGuardContext ctx) {
+        return check(text, ctx, false);
+    }
+
+    private static InputResult check(String text, AgentGuardContext ctx, boolean approvalActions) {
         String input = text == null ? "" : text;
         List<Decision> decisions = new ArrayList<>();
 
@@ -89,7 +102,7 @@ public final class GuardrailEngine {
         // 3. built-in actions that need approval
         for (ApprovalAction action : ApprovalAction.values()) {
             Pattern intent = ACTION_INTENT.get(action);
-            if (ctx.approvals().contains(action) && intent.matcher(input).find()) {
+            if (approvalActions && ctx.approvals().contains(action) && intent.matcher(input).find()) {
                 decisions.add(Decision.of(Kind.APPROVAL_ACTION, AuditOutcome.NEEDS_APPROVAL, "Action needs approval: " + action.name().toLowerCase()));
                 return new InputResult.Stop(AuditOutcome.NEEDS_APPROVAL, WAIT_ACTION, "Agent prepared an action that needs approval: " + action.name().toLowerCase(), decisions);
             }

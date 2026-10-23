@@ -111,7 +111,7 @@ public class ClaudeProvider implements ModelProvider {
         }
         List<Map<String, Object>> messages = new ArrayList<>();
         for (ChatMessage m : request.messages()) {
-            messages.add(Map.of("role", m.role(), "content", m.text()));
+            messages.add(Map.of("role", m.role(), "content", content(m)));
         }
         body.put("messages", messages);
         if (request.tools() != null && !request.tools().isEmpty()) {
@@ -141,6 +141,31 @@ public class ClaudeProvider implements ModelProvider {
             Thread.currentThread().interrupt();
             throw new ModelException("The model call was interrupted", e);
         }
+    }
+
+    /** Plain text, or content blocks when the message carries tool requests or tool results. */
+    static Object content(ChatMessage m) {
+        if (m.toolCalls().isEmpty() && m.toolResults().isEmpty()) {
+            return m.text();
+        }
+        List<Map<String, Object>> blocks = new ArrayList<>();
+        if (m.text() != null && !m.text().isBlank()) {
+            blocks.add(Map.of("type", "text", "text", m.text()));
+        }
+        for (ToolCall c : m.toolCalls()) {
+            blocks.add(Map.of("type", "tool_use", "id", c.id(), "name", c.name(), "input", JSON.readTree(c.inputJson().isBlank() ? "{}" : c.inputJson())));
+        }
+        for (ToolResult r : m.toolResults()) {
+            Map<String, Object> block = new LinkedHashMap<>();
+            block.put("type", "tool_result");
+            block.put("tool_use_id", r.toolCallId());
+            block.put("content", r.content());
+            if (r.error()) {
+                block.put("is_error", true);
+            }
+            blocks.add(block);
+        }
+        return blocks;
     }
 
     private static ModelException failure(int status, String body) {

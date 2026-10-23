@@ -660,14 +660,14 @@ Tools that change things (email, tickets, writing records) and the approval flow
 
 ### Open questions for M8
 
-- [ ] **How a skill is carried out.** Proposal (above): the model loads the skill's instructions with `use_skill` and then uses the data tools itself, all inside one loop. Alternative: the skill runs as its own small run with its own model call and hands back a result, which costs more calls but keeps skills self-contained. Which do you want?
-- [ ] **Bound to a data source?** Proposal: a skill works on whatever sources the agent has attached; it is not bound to one source. Alternative: a skill names the source (or kind of source) it works on and is unavailable without it.
-- [ ] **One input or several?** Proposal: one text input with a label. Alternative: the agent declares named inputs (for example customer id and review type).
-- [ ] **Who judges that the goal is met?** Proposal: the model, through `finish`. Alternative: also a second check, a model call or a rule, that tests the result against criteria written in the goal.
-- [ ] **Chat and runs.** Proposal: the test chat keeps its single answer; runs are the new mode. Alternative: the chat uses the same loop and tools.
-- [ ] **Runs and retention** with "Do not store": proposal above (counts and stop reason only). Is that acceptable for users who need to see what happened?
-- [ ] **Limits.** Are 12 steps, 5 minutes and 100,000 tokens sensible defaults for your first agents?
-- [ ] **API in M8 or later?** Proposal: second part of M8. It can also move to its own milestone.
+- [x] **How a skill is carried out.** Proposal (above): the model loads the skill's instructions with `use_skill` and then uses the data tools itself, all inside one loop. Alternative: the skill runs as its own small run with its own model call and hands back a result, which costs more calls but keeps skills self-contained. Which do you want? **Decided: The model loads the skill with `use_skill` and then uses the data tools itself, all inside one loop (no sub-runs).**
+- [x] **Bound to a data source?** Proposal: a skill works on whatever sources the agent has attached; it is not bound to one source. Alternative: a skill names the source (or kind of source) it works on and is unavailable without it. **Decided: No; a skill works on the sources the agent has attached.**
+- [x] **One input or several?** Proposal: one text input with a label. Alternative: the agent declares named inputs (for example customer id and review type). **Decided: One text input with a label.**
+- [x] **Who judges that the goal is met?** Proposal: the model, through `finish`. Alternative: also a second check, a model call or a rule, that tests the result against criteria written in the goal. **Decided: The model, through `finish`. No second check in M8.**
+- [x] **Chat and runs.** Proposal: the test chat keeps its single answer; runs are the new mode. Alternative: the chat uses the same loop and tools. **Decided: The test chat keeps its single answer; runs are the new mode.**
+- [x] **Runs and retention** with "Do not store": proposal above (counts and stop reason only). Is that acceptable for users who need to see what happened? **Decided: With "Do not store" a run keeps counts and the stop reason only.**
+- [x] **Limits.** Are 12 steps, 5 minutes and 100,000 tokens sensible defaults for your first agents? **Decided: Yes: 12 steps, 5 minutes, 100,000 tokens, with the ceilings given above.**
+- [x] **API in M8 or later?** Proposal: second part of M8. It can also move to its own milestone. **Decided: Second part of M8.**
 
 ## Assumptions and open questions
 

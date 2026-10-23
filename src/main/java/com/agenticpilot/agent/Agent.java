@@ -57,6 +57,23 @@ public class Agent extends AuditedEntity implements Governed {
     @Column(name = "lifecycle_status", nullable = false, length = 16)
     private Lifecycle lifecycle = Lifecycle.DRAFT;
 
+    /** A checkable statement of what the agent is responsible for. A run lasts until it is met. */
+    @Column(nullable = false, length = 1000)
+    private String goal = "";
+
+    /** The label of the one input a run takes, for example "Customer id". */
+    @Column(name = "input_label", nullable = false, length = 40)
+    private String inputLabel = "Task";
+
+    @Column(name = "max_steps", nullable = false)
+    private int maxSteps = 12;
+
+    @Column(name = "max_seconds", nullable = false)
+    private int maxSeconds = 300;
+
+    @Column(name = "max_tokens", nullable = false)
+    private int maxTokens = 100_000;
+
     @Column(name = "last_run")
     private Instant lastRun;
 
@@ -106,6 +123,20 @@ public class Agent extends AuditedEntity implements Governed {
     public AppUser getOwner() { return owner; }
     public Set<Skill> getSkills() { return skills; }
     public Set<DataSource> getSources() { return sources; }
+    public String getGoal() { return goal; }
+    public void setGoal(String goal) { this.goal = goal; }
+    public String getInputLabel() { return inputLabel; }
+    public void setInputLabel(String inputLabel) { this.inputLabel = inputLabel; }
+    public int getMaxSteps() { return maxSteps; }
+    public int getMaxSeconds() { return maxSeconds; }
+    public int getMaxTokens() { return maxTokens; }
+
+    public void setLimits(int maxSteps, int maxSeconds, int maxTokens) {
+        this.maxSteps = maxSteps;
+        this.maxSeconds = maxSeconds;
+        this.maxTokens = maxTokens;
+    }
+
     @Override public int getLiveVersion() { return liveVersion; }
     @Override public void setLiveVersion(int liveVersion) { this.liveVersion = liveVersion; }
     @Override public Lifecycle getLifecycle() { return lifecycle; }
