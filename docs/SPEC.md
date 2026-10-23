@@ -388,7 +388,7 @@ Manifests live in the repository under `deploy/k8s` as a Kustomize base plus ove
 
 ## Milestones and tests
 
-Eight milestones, each runnable and deployable on its own. Coding starts with M0 once this spec is approved.
+Nine milestones, each runnable and deployable on its own. Coding starts with M0 once this spec is approved.
 
 | Milestone | Scope | Done when |
 | --- | --- | --- |
@@ -400,6 +400,7 @@ Eight milestones, each runnable and deployable on its own. Coding starts with M0
 | M5 Production readiness | PostgreSQL profile, multi-replica decision (sticky sessions or Kubernetes Kit), security review, runbook | A rolling update loses no data. Two replicas keep users signed in. The runbook is complete |
 | M6 Open decisions | Decisions on registry, retention, malware scanning and the first integration; read-only spreadsheets (.xlsx, .csv) as data source files for the Read spreadsheets tool | Spreadsheet uploads are searchable by any cell value and refused when oversized or renamed. The decisions and their consequences are in the runbook and security review |
 | M7 Governance | Approval lifecycle with versions for skills and agents, an Approvals screen with diffs, richer data source settings, enforcement labels on guardrails, skill test cases, audit search (see section "M7 specification") | A skill or agent change goes live only after a different Admin approves it. Only approved versions run. Every step is in the audit log |
+| M8 Agent runs | The agent loop: an agent with a goal runs until the goal is met, decides which skills to use, reads data through tools the program runs for it, and shows every step (see section "M8 specification") | A user starts an agent with an input such as a customer id and gets a result built from a data source, with every step visible and audited. The run stops at its limits. Guardrails apply to every step |
 
 **Test strategy**
 
@@ -547,6 +548,126 @@ Agent teams and handovers, triggers and scheduled runs, run logs with typed entr
 - [x] Agent guardrail controls are not versioned (see above). Should loosening a control below the recommended value need approval? **Decided: No; they change at once and are audited.**
 - [x] A new agent cannot be activated before its first approval. Is that acceptable for quick experiments, or should owners be able to run their own drafts in the test chat only (as proposed)? **Decided: As proposed; owners test their draft in the test chat, the API runs approved agents only.**
 - [x] Should rejecting require the author to start a new draft, or may they continue editing the rejected version? **Decided: A rejected or withdrawn version stays as history; the author continues in a new draft that starts from it.**
+
+## M8 specification: Agent runs
+
+Until M7 an agent is a chat assistant: one prompt, one answer. M8 makes it an agent in the full sense. The program is a loop around the model. The model only reads and writes text; the program builds the prompt, calls the model, reads the answer, checks any request the model makes, does the work itself and feeds the result back. The loop runs until the goal is met or a limit stops it.
+
+**What the user sees.** A skill describes how to extract and work on data from a data source, in words. An agent has a goal and a set of skills. The user starts the agent with an input (for example a customer id). The agent decides which skills to use and when, works through the data and ends with a result. The user can watch every step and stop the run.
+
+**Decisions taken for M8** (proposals marked "open" are in the questions at the end)
+
+| Topic | Decision |
+| --- | --- |
+| Where it runs | In the Agents page as a new Run panel. The test chat stays as a quick single answer |
+| Who starts a run | The owner or an Admin, on an approved agent. The owner or an Admin may also run the draft, as in the test chat |
+| What a run reads | Only the data sources attached to the agent. All access is read-only in M8 |
+| Who decides what happens | The model asks, the program decides. A request is checked against permissions and limits before the program does anything |
+| Who decides it is done | The model, by calling the built-in `finish` tool with a result; the program may stop it earlier |
+
+### The loop
+
+1. **Build the prompt.** In this order: the agent's goal and instructions, its purpose, the list of its approved skills (name, when to use it), the tool definitions, the run input, then the conversation of the run so far (model answers and tool results).
+2. **Call the model** with the tool definitions. The answer is either text or a tool request. A tool request is structured text, not an action.
+3. **Check the request.** The program checks that the tool is offered to this agent, that the arguments are valid and inside the agent's permissions (only attached sources, size limits), and that no limit is used up. A refused request goes back to the model as an error result so it can correct itself; repeated refusals stop the run.
+4. **Run the tool.** The program does the work itself: it searches, reads or looks up. The result is shortened to a size limit and goes through the guardrails (below), then into the prompt as a tool result.
+5. **Repeat from step 2** until the model calls `finish`, or the program stops the run.
+
+**Stop reasons** (stored with the run): Done (the model called `finish` and said the goal is met), Gave up (the model called `finish` and said it cannot meet the goal, with the reason), Step limit, Time limit, Token limit, Stopped by a user, Refused too often, Failed (model or system error), Interrupted (the replica running it was lost).
+
+### Skills in a run
+
+- A skill keeps its current fields (name, what it does, when to use it, instructions, tools, answer format). Its instructions say how to extract and work on data from a data source, for example "find the customer row by id, read the risk class and the last review date, list what is missing".
+- The prompt lists each approved skill of the agent with its name and "when to use it". The model chooses a skill by calling the built-in `use_skill` tool with the skill name. The program answers with the skill's full instructions and answer format, which then guide the following steps. Only skills of the agent's live approved configuration can be used (a draft run also uses draft skills).
+- A skill's allowed tools decide which data tools the model is offered while that skill is in use. The tools offered at any time are the union of the allowed tools of the skills loaded so far, plus `use_skill` and `finish`. A skill with no data tool can only guide the answer.
+- A skill does not call another skill. Only the model, through `use_skill`, brings skills into the run.
+
+### Tools in M8
+
+| Tool | What the program does | Needs the skill tool |
+| --- | --- | --- |
+| `use_skill(name)` | Returns the instructions of that skill | always offered |
+| `finish(status, result)` | Ends the run. Status is `done` or `cannot_complete` | always offered |
+| `search_documents(source, query)` | Keyword search in one attached source, returns the best passages with document titles | Search documents |
+| `read_document(source, title)` | Returns one document of an attached source, shortened to the size limit | Search documents |
+| `lookup_rows(source, column, value)` | In an attached spreadsheet source, returns the rows whose column equals the value (for example a customer id) | Read spreadsheets |
+
+Tools that change anything outside (Send email, Create ticket, Browse the web) stay stubs in M8. If a skill lists them, the model is not offered them and the review warns that the skill's tool is not available yet.
+
+### Input
+
+An agent has one run input, with a label the owner chooses (for example "Customer id"; default "Task"). The user types it when starting a run. The input is text of up to 1,000 characters, checked by the guardrails like a chat message, and appears in the prompt as the task to work on. (Open: several named inputs.)
+
+### Guardrails inside the loop
+
+- **Input:** the run input goes through the same input checks as a chat message (personal data, special categories, custom rules, approval actions). A block ends the run before the model is called.
+- **Model calls:** personal data is masked in everything that goes to the model, including tool results, according to the agent's setting. A customer row with an email address reaches the model as `[email]` when masking is on. Region and EU-only rules apply to every call; a refusal ends the run.
+- **Tool results are data, never instructions.** They are labelled as such in the prompt, filtered by hidden-instruction protection when it is on, and cannot change tool permissions or guardrails.
+- **Output:** the `finish` result goes through the output checks (personal data, record limit, notes) before it is shown or stored.
+- **Custom rules** that block or need approval stop the run at the step where they match. A "Needs approval" match pauses the run as a pending action; an Admin approves or denies from the audit log or the run page, and the run continues or ends.
+- **Autonomy:** in M8 every tool reads only, so the autonomy setting has no effect on a run. It becomes the approval policy for tools that change something once those exist. (Open.)
+
+### Limits
+
+Per agent, with workspace defaults and a hard ceiling: steps per run (default 12, ceiling 30), run time (default 5 minutes, ceiling 15), tokens per run (default 100,000, ceiling 500,000), result size per tool call (default 8,000 characters), refused requests per run (3). An agent cannot raise a limit above the ceiling. At most 3 runs of one agent and 10 in the workspace run at the same time. The limits are enforced by the program, not by the prompt.
+
+### Starting, watching, stopping
+
+- **Start:** the Run panel on the agent page has the input field and a Start button. The run starts in the background and the page shows it live.
+- **Watch:** a timeline of steps: model turn, skill chosen, tool request, tool result (shortened), refusal, guardrail decision, final result. Each step shows time, tokens and duration.
+- **Stop:** a Stop button ends the run at the next step boundary with the reason "Stopped by a user".
+- **Result:** the final result, the stop reason and a summary (steps, tokens, duration, skills and sources used).
+- **Past runs:** a list per agent with input, who started it, outcome and time. Opening one shows its timeline.
+- **Several replicas:** the replica that starts a run executes it and saves every step. Another replica can show it by reading the database. A watchdog marks a run that has not moved for 5 minutes as Interrupted (under the same database lock as the other jobs).
+
+### API (second part of M8)
+
+`POST /api/v1/agents/{id}/runs` with `{"input": "..."}` answers 202 with a run id. `GET /api/v1/runs/{id}` returns status, steps and result. Same keys, rate limits and error format as the other endpoints. Only approved agents. Errors and stop reasons use fixed codes.
+
+### Data model changes (migration V8)
+
+- `agent`: `goal` (text up to 1,000), `input_label`, and limits (`max_steps`, `max_seconds`, `max_tokens`). The goal and the input label are part of an agent version, the limits are not.
+- New `agent_run`: agent, agent version number, started by (user or API key), input (masked), status (RUNNING, WAITING_FOR_APPROVAL, FINISHED), stop reason, result (masked), draft flag, tokens used, started at, ended at, expires at, last step at.
+- New `agent_run_step`: run, ordinal, type (MODEL, SKILL, TOOL_CALL, TOOL_RESULT, REFUSED, GUARDRAIL, PENDING, FINISH), tool and arguments (masked), result excerpt (masked, shortened), tokens in and out, duration, skill and rule version involved.
+- `pending_action` gets an optional run.
+- Retention: a run follows the retention period of its agent. With "Do not store" the run keeps its status, counts and stop reason but no input, step texts or result after it ends. (Open.)
+
+### Audit
+
+Every run writes: started (agent, version, who), each guardrail decision, each refused request, pending actions, the stop reason, and tokens used. Audit entries never contain the input, tool results or the final result, only the decisions and counts, as for chat.
+
+### Provider changes
+
+The model provider must support tool use: tool definitions in the request, tool requests in the answer, and tool results in the conversation. The Claude provider reads tool requests already; the conversation model needs result messages. The fake model used in tests gets scripted answers (a list of tool requests and texts) so loops can be tested without a real model.
+
+### Tests
+
+- **Loop with a scripted model:** plain answer, one tool call then finish, several skills, unknown tool, invalid arguments, a source that is not attached, repeated refusals, finish with `cannot_complete`.
+- **Limits:** step, time, token and result size limits stop the run with the right reason; the ceiling cannot be exceeded; concurrency caps.
+- **Guardrails:** blocked input never reaches the model; personal data in tool results is masked before the next model call; hidden-instruction text in a result is ignored; a custom rule that needs approval pauses and resumes the run; EU-only refusal ends the run.
+- **Skills and tools:** only approved skills; a draft run uses drafts; tools are offered by skill; `lookup_rows` finds the row of a spreadsheet by id and never reads another agent's source.
+- **Run lifecycle:** stop by a user, watchdog marks an abandoned run, retention deletes expired runs, "Do not store" keeps no texts, permissions (owner, Admin, others), audit entries without personal data.
+- **API:** start, poll, errors, rate limit, unapproved agents.
+- **UI:** a browser test starts a run against a fake model and sees the timeline and the result.
+
+### Done when
+
+A user starts an approved agent with a customer id. The agent loads the skill it needs, looks up the customer in an attached spreadsheet, works through the data as the skill instructs, and ends with a result that meets its goal. Every step is visible in the run and written to the audit log without personal data. A run that does not finish stops at its limits with a clear reason. A blocked input, a forbidden source or a prompt injection in the data does not get through.
+
+### Not in M8 (later)
+
+Tools that change things (email, tickets, writing records) and the approval flow for them, scheduled and event triggers, agent teams and handovers, memory between runs, live connectors (databases, APIs), vector search, several inputs per agent, using the loop in the test chat.
+
+### Open questions for M8
+
+- [ ] **How a skill is carried out.** Proposal (above): the model loads the skill's instructions with `use_skill` and then uses the data tools itself, all inside one loop. Alternative: the skill runs as its own small run with its own model call and hands back a result, which costs more calls but keeps skills self-contained. Which do you want?
+- [ ] **Bound to a data source?** Proposal: a skill works on whatever sources the agent has attached; it is not bound to one source. Alternative: a skill names the source (or kind of source) it works on and is unavailable without it.
+- [ ] **One input or several?** Proposal: one text input with a label. Alternative: the agent declares named inputs (for example customer id and review type).
+- [ ] **Who judges that the goal is met?** Proposal: the model, through `finish`. Alternative: also a second check, a model call or a rule, that tests the result against criteria written in the goal.
+- [ ] **Chat and runs.** Proposal: the test chat keeps its single answer; runs are the new mode. Alternative: the chat uses the same loop and tools.
+- [ ] **Runs and retention** with "Do not store": proposal above (counts and stop reason only). Is that acceptable for users who need to see what happened?
+- [ ] **Limits.** Are 12 steps, 5 minutes and 100,000 tokens sensible defaults for your first agents?
+- [ ] **API in M8 or later?** Proposal: second part of M8. It can also move to its own milestone.
 
 ## Assumptions and open questions
 
