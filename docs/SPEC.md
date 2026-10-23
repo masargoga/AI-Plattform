@@ -63,7 +63,9 @@ Two roles cover the first releases: Admin and Agent owner. Users sign in with a 
 | Create and edit skills and data sources | All | Own (see open questions) |
 | Propose a custom rule for selected agents | Yes | Own agents only |
 | Apply a custom rule to all agents | Yes | No |
-| Approve or reject a rule change | Yes, never own change | No |
+| Approve or reject a rule, skill or agent version | Yes, never own change | No |
+| Submit a skill or agent version for review | All | Own (M7) |
+| Retire a skill or agent | Yes | No (M7) |
 | Turn a rule on or off, delete a rule | Yes | No |
 | Change workspace policies | Yes | No |
 | Complete records and data subject requests | Yes | No |
@@ -386,7 +388,7 @@ Manifests live in the repository under `deploy/k8s` as a Kustomize base plus ove
 
 ## Milestones and tests
 
-Seven milestones, each runnable and deployable on its own. Coding starts with M0 once this spec is approved.
+Eight milestones, each runnable and deployable on its own. Coding starts with M0 once this spec is approved.
 
 | Milestone | Scope | Done when |
 | --- | --- | --- |
@@ -397,6 +399,7 @@ Seven milestones, each runnable and deployable on its own. Coding starts with M0
 | M4 API and website | REST API with keys, message and check endpoints, approval polling, OpenAPI, rate limits, website connector | An external client gets decisions from the check endpoint. A test site syncs. Private addresses are refused |
 | M5 Production readiness | PostgreSQL profile, multi-replica decision (sticky sessions or Kubernetes Kit), security review, runbook | A rolling update loses no data. Two replicas keep users signed in. The runbook is complete |
 | M6 Open decisions | Decisions on registry, retention, malware scanning and the first integration; read-only spreadsheets (.xlsx, .csv) as data source files for the Read spreadsheets tool | Spreadsheet uploads are searchable by any cell value and refused when oversized or renamed. The decisions and their consequences are in the runbook and security review |
+| M7 Governance | Approval lifecycle with versions for skills and agents, an Approvals screen with diffs, richer data source settings, enforcement labels on guardrails, skill test cases, audit search (see section "M7 specification") | A skill or agent change goes live only after a different Admin approves it. Only approved versions run. Every step is in the audit log |
 
 **Test strategy**
 
@@ -406,6 +409,133 @@ Seven milestones, each runnable and deployable on its own. Coding starts with M0
 - **API:** contract tests against the OpenAPI description.
 - **UI:** smoke tests for the main flows and an accessibility scan, run in CI.
 - **Model calls:** tested with a fake provider. Real calls only in a manual check.
+
+## M7 specification: Governance
+
+M7 takes the approval ideas of the custom rules (versions, a note, a different Admin approves) and applies them to skills and agents. It adds the settings and labels that let a reviewer judge a change: data source trust, honest enforcement labels on guardrails, skill test cases and a searchable audit log. The idea comes from an earlier prototype specification for KYC reviews; its domain parts (document matrix, customers) are not taken over.
+
+**Decisions taken for M7**
+
+| Topic | Decision |
+| --- | --- |
+| Scope of the lifecycle | Skills and agents. Data sources keep settings without approval (changes are audited) |
+| Approver | Any Admin who is not the author of the version. No new role |
+| Auditor role | Not added |
+| Existing content | Migrated to approved version 1, so nothing stops working |
+| Agent run state | Pause and activate stay immediate and audited. Only the configuration is versioned |
+
+### Lifecycle
+
+- Status of a skill or agent: `DRAFT`, `IN_REVIEW`, `APPROVED`, `RETIRED`. A version of it is `DRAFT`, `PENDING`, `APPROVED`, `REJECTED` or `WITHDRAWN`.
+- The live row always equals the newest approved version, as for custom rules. Runtime, API and agent pickers read only the live row.
+- **New item:** created as version 0, status `DRAFT`. It cannot be used by an agent, activated or called through the API until its first version is approved. Its author may test it explicitly (see "Draft testing").
+- **Edit:** an edit of an approved item creates or updates a draft version; the live version stays active. The editor shows a banner "Draft v3 based on v2". The author chooses Save draft, Submit for review (a change note is required), Discard draft or, while pending, Withdraw.
+- **Review:** only one version per item may be pending. A pending version cannot be edited. Another Admin approves, or rejects with a required comment. The author cannot approve (service check and database constraint, as for rules).
+- **Retire:** Admin only, immediate, audited. Blocked while an approved agent uses the skill, or while an API key of the agent is active. A retired item can be restored as a new draft.
+- Pause and activate of an agent are not versioned: they take effect at once and are audited.
+- Deleting (the open point "Delete") is allowed only for items with no approved version, or retired items; it follows the existing integrity rule.
+
+**What is versioned**
+
+| Item | Fields in a version |
+| --- | --- |
+| Skill | name, type, description, trigger text, instructions, tools, output format, compliance-relevant flag |
+| Agent | name, job, instructions, kind, autonomy, model tier, skills, data sources |
+
+Not versioned: an agent's guardrail controls (they are bounded by workspace policy, change at once and are audited), the owner, the run state and counters, test cases (see below).
+
+An agent references skills, not skill versions. When a skill gets a new approved version, agents use it from then on. A skill that is not approved (draft, retired) is skipped by the runtime and shown in the agent as "not available".
+
+### Approvals screen
+
+- A new tab Approvals under Policies (`/policies/approvals`) lists everything in review: rules, skills and agents, with author, date and note. The open-items count in the navigation includes them.
+- The detail view shows the change as old value to new value per field. For skills and data sources of an agent it lists what was added and removed. It also shows the author's note, the warnings (below) and the latest test case results of a skill.
+- Actions: approve, reject with required comment. The author sees Withdraw instead. The approver never sees an approve button for their own change.
+- Existing rule reviews move into the same screen; the rule sheets keep working.
+- Each skill and agent page has a History tab: version, author, date, approver, note, status; choose two versions to see the diff.
+
+### Draft testing
+
+The live version runs everywhere, with one exception: on the page of a skill or agent, its author or an Admin can switch the test chat or Try it to "Draft" explicitly. The panel then shows a visible banner and the audit entry names the draft version. The API never runs drafts.
+
+### Data source settings
+
+New fields on a data source, editable by its owner and Admins, changes audited, no approval:
+
+| Field | Meaning |
+| --- | --- |
+| Owner | Person or team responsible (text) |
+| Trust level | `AUTHORITATIVE` or `INFORMATIONAL` (default Informational) |
+| On failure | `USE_LAST_COPY` (default, today's behaviour) or `STOP_AND_REPORT`: when the source is in Error or older than its maximum age, retrieval skips it and the answer states that the source is unavailable |
+| Maximum age | Days before a copy counts as stale (default 5, as today) |
+| Review by | Optional date; a warning shows after it |
+| Version info | Free text, for example the document version and the date it applied |
+
+**Warning rule.** An agent with a skill marked compliance-relevant whose attached sources are all Informational (or has none) shows a warning in its Configure tab and in the review of any version that adds the skill or removes a source. It is a warning, not a block.
+
+### Guardrail enforcement labels
+
+Every built-in control and every custom rule shows how it is enforced, and a lock where a workspace policy fixes it:
+
+| Label | Meaning | Shown on |
+| --- | --- | --- |
+| Platform | The platform enforces it in code; the model cannot bypass it | Personal data, special categories, location (EU only), record limit, approval actions, custom rules |
+| Model | Only an instruction in the prompt; the model may ignore it | Purpose |
+| Recorded only | Stored and audited, but not enforced yet | Human review for decisions about people (until it is built) |
+
+Hidden-instruction protection and retention are labelled Platform (filter and scheduled deletion). The labels come from message bundles and one table in code, so they cannot drift from the controls. The guardrail check score does not change.
+
+### Skill test cases
+
+- A skill has test cases: name, sample input, and up to three checks: answer contains, answer does not contain, answer matches a pattern (same time-bounded matching as rules). Exact text match is deliberately not offered, because model answers vary.
+- Run all runs each case with the model (the skill's Try it path, live or draft) and shows pass or fail per check. Without a model connection, cases show "not run".
+- Submitting a skill version stores the latest result summary with it; the Approvals screen shows it and the approver can re-run. A failing or missing result does not block approval; the reviewer decides.
+- Test cases are not versioned and belong to the skill; edits are audited.
+
+### Audit log search
+
+Search by text (event, agent, actor), filter by agent, by outcome (as today) and by date range. The CSV export applies the same filters. Lifecycle events (submit, approve, reject, withdraw, retire, draft test) are written with the item, the version and the actor.
+
+### Data model changes (migration V7)
+
+- `skill` and `agent`: `lifecycle_status`, `live_version` (number); `skill`: `compliance_relevant`.
+- New `skill_version` and `agent_version`: item, version number, snapshot (JSON), author, note, status, approver, decided at, decision comment. Constraints as for `rule_version`: one pending per item, approver differs from author.
+- New `skill_test_case` (skill, name, input, checks as JSON, created by) and `skill_test_result` (version, case, outcome, run at).
+- `data_source`: `owner`, `trust_level`, `on_failure`, `max_age_days`, `review_by`, `version_info`.
+- Migration of existing rows: each skill and agent gets an approved version 1 whose snapshot is its current content, author the creator, note "Migrated", and `lifecycle_status = APPROVED`.
+
+### Integrity rules
+
+- The live fields of a skill or agent equal its newest approved version. Only one version per item may be pending.
+- A version's approver differs from its author (service check and database constraint).
+- Skill and agent versions are never updated after approval or rejection and never deleted through the application.
+- An approved agent never references a skill that is not approved; retiring blocks as described above.
+
+### Tests
+
+- Four-eyes for skills and agents: the author cannot approve, a second Admin can; the database constraint holds.
+- Only approved versions run: a draft or retired item is skipped by chat and API; draft testing needs the explicit switch and is audited.
+- Edit creates a draft and leaves the live version unchanged; approve switches the live fields at once; reject and withdraw leave them untouched.
+- Retire is blocked while used; delete rules; migration gives every existing item an approved version 1.
+- Diff output for changed fields and for added and removed skills and sources.
+- Data source: warning rule, stop-on-failure behaviour in retrieval, review-by warning.
+- Test case checks (contains, does not contain, pattern) with a fake model; the Approvals screen shows stored results.
+- Audit search and CSV export with filters.
+- The security matrix covers the new services (anonymous and API key are refused) and the permission matrix per role.
+
+### Done when
+
+A skill or agent change goes live only after a different Admin approves it, and the author cannot approve it. Chat and API run only approved versions. A reviewer sees every changed field and the test results before deciding. Existing data still works after the migration. Each step above is in the audit log, and the guardrail screen says honestly which controls are enforced by the platform.
+
+### Not in M7 (later)
+
+Agent teams and handovers, triggers and scheduled runs, run logs with typed entries, agent limits for cost and runtime, skill inputs and output schemas, skills declaring the data sources they need, an Auditor role, skill export as files, and skills calling skills.
+
+### Open questions for M7
+
+- [ ] Agent guardrail controls are not versioned (see above). Should loosening a control below the recommended value need approval?
+- [ ] A new agent cannot be activated before its first approval. Is that acceptable for quick experiments, or should owners be able to run their own drafts in the test chat only (as proposed)?
+- [ ] Should rejecting require the author to start a new draft, or may they continue editing the rejected version? Proposal: a rejected version stays as history and the author continues in a new draft that starts from it.
 
 ## Assumptions and open questions
 
