@@ -8,6 +8,9 @@ import com.agenticpilot.agent.AgentStatus;
 import com.agenticpilot.agent.Autonomy;
 import com.agenticpilot.agent.ModelTier;
 import com.agenticpilot.common.CurrentUser;
+import com.agenticpilot.governance.ApprovalService;
+import com.agenticpilot.governance.GovernanceWarnings;
+import com.agenticpilot.governance.Lifecycle;
 import com.agenticpilot.guardrail.AgentGuardrailService;
 import com.agenticpilot.guardrail.CustomRuleService;
 import com.agenticpilot.guardrail.WorkspacePolicyService;
@@ -64,7 +67,14 @@ public class AgentView extends Div implements BeforeEnterObserver {
     private final AgentChatService chat;
     private final BackgroundExecutor executor;
     private final ApiKeyService apiKeys;
+    private final ApprovalService approvals;
+    private final GovernanceWarnings warnings;
+    private final CurrentUser currentUser;
 
+    private AgentService.Content cfg;
+    private boolean canEditAgent;
+    private java.util.Map<UUID, Skill> skillsById = java.util.Map.of();
+    private java.util.Map<UUID, DataSource> sourcesById = java.util.Map.of();
     private AgentTestPanel testPanel;
     private UUID testPanelAgent;
     private UUID agentId;
@@ -82,7 +92,10 @@ public class AgentView extends Div implements BeforeEnterObserver {
 
     public AgentView(AgentService agents, SkillService skills, DataSourceService sources, AgentGuardrailService guardrails,
                      CustomRuleService rules, WorkspacePolicyService policies, CurrentUser currentUser, AgentChatService chat,
-                     BackgroundExecutor executor, ApiKeyService apiKeys) {
+                     BackgroundExecutor executor, ApiKeyService apiKeys, ApprovalService approvals, GovernanceWarnings warnings) {
+        this.approvals = approvals;
+        this.warnings = warnings;
+        this.currentUser = currentUser;
         this.apiKeys = apiKeys;
         this.chat = chat;
         this.executor = executor;
@@ -116,13 +129,17 @@ public class AgentView extends Div implements BeforeEnterObserver {
 
     private void build() {
         removeAll();
-        editable = agents.canEdit(agent);
+        cfg = agents.editable(agentId);
+        canEditAgent = agents.canEdit(agent);
+        editable = canEditAgent && !LifecycleBar.contentLocked(agents, agent);
+        skillsById = skills.all().stream().collect(java.util.stream.Collectors.toMap(Skill::getId, x -> x));
+        sourcesById = sources.all().stream().collect(java.util.stream.Collectors.toMap(DataSource::getId, x -> x));
         boolean on = agent.getStatus() == AgentStatus.ACTIVE;
 
         NativeButton back = Dom.button("ap-back", VaadinIcon.ANGLE_LEFT, getTranslation("nav.agents"), () -> UI.getCurrent().navigate(AgentsView.class));
         add(back);
 
-        name = FormField.textInput("agent-name", agent.getName(), AgentService.NAME_MAX);
+        name = FormField.textInput("agent-name", cfg.name(), AgentService.NAME_MAX);
         name.addClassName("ap-title-input");
         name.getElement().setAttribute("aria-label", getTranslation("agent.name"));
         name.setEnabled(editable);
@@ -136,7 +153,12 @@ public class AgentView extends Div implements BeforeEnterObserver {
         Div main = Dom.div("ap-ah-main", name, para("ap-sub", sub));
 
         Div actions = Dom.div("ap-ah-actions");
-        if (editable) {
+        if (!agent.isUsable()) {
+            actions.add(Dom.span("ap-pill" + LifecycleBar.statusTone(agent.getLifecycle()), getTranslation("lifecycle." + agent.getLifecycle().name())));
+            if (editable) {
+                actions.add(Dom.button("ap-btn ap-primary", VaadinIcon.CHECK, getTranslation("agent.saveDraft"), this::save));
+            }
+        } else if (canEditAgent) {
             SwitchButton sw = new SwitchButton(on, getTranslation("agent.statusSwitch"), checked -> {
                 if (Feedback.run(this, () -> agents.setStatus(agentId, checked ? AgentStatus.ACTIVE : AgentStatus.PAUSED))) {
                     Feedback.saved(this, checked ? "agent.activated" : "agent.paused");
@@ -144,13 +166,17 @@ public class AgentView extends Div implements BeforeEnterObserver {
                 }
             });
             actions.add(Dom.span("ap-status-toggle", sw, Dom.span(null, getTranslation(on ? "status.active" : "status.paused"))));
-            actions.add(Dom.button("ap-btn ap-primary", VaadinIcon.CHECK, getTranslation("action.save"), this::save));
+            if (editable) {
+                actions.add(Dom.button("ap-btn ap-primary", VaadinIcon.CHECK, getTranslation("agent.saveDraft"), this::save));
+            }
         } else {
             actions.add(Dom.span("ap-status-toggle", Dom.span("ap-dot" + (on ? "" : " ap-paused")), Dom.span(null, getTranslation(on ? "status.active" : "status.paused"))));
         }
         add(Dom.div("ap-ah", new Emblem(agent, "lg"), main, actions));
+        add(new LifecycleBar(agents, agent, canEditAgent, currentUser.require().isAdmin(), currentUser.require().getId(), "agent",
+                this::reload, () -> UI.getCurrent().navigate(AgentsView.class)));
 
-        if (!editable) {
+        if (!canEditAgent) {
             add(Dom.div("ap-readonly-note", Dom.span(null, getTranslation("agent.readonly", agent.getOwner().getDisplayName()))));
         }
 
@@ -186,17 +212,17 @@ public class AgentView extends Div implements BeforeEnterObserver {
     private Div configColumn() {
         Div setup = Dom.div("ap-col ap-setup");
 
-        instructions = new NativeTextArea("agent-instructions", agent.getInstructions(), 6, AgentService.INSTRUCTIONS_MAX);
+        instructions = new NativeTextArea("agent-instructions", cfg.instructions(), 6, AgentService.INSTRUCTIONS_MAX);
         instructions.setEnabled(editable);
-        job = FormField.textInput("agent-job", agent.getJob(), AgentService.JOB_MAX);
+        job = FormField.textInput("agent-job", cfg.job(), AgentService.JOB_MAX);
         job.setEnabled(editable);
-        Paragraph autonomyHint = para("ap-hint", Labels.hint(this, agent.getAutonomy()));
+        Paragraph autonomyHint = para("ap-hint", Labels.hint(this, cfg.autonomy()));
         autonomy = new Segmented<>(Arrays.stream(Autonomy.values())
-                .map(a -> new Segmented.Option<>(a, Labels.of(this, a))).toList(), agent.getAutonomy());
+                .map(a -> new Segmented.Option<>(a, Labels.of(this, a))).toList(), cfg.autonomy());
         autonomy.onChange(a -> autonomyHint.setText(Labels.hint(this, a)));
         autonomy.setEnabled(editable);
         model = new NativeSelect("agent-model", Arrays.stream(ModelTier.values())
-                .map(m -> new NativeSelect.Choice(m.name(), Labels.of(this, m))).toList(), agent.getModelTier().name());
+                .map(m -> new NativeSelect.Choice(m.name(), Labels.of(this, m))).toList(), cfg.modelTier().name());
         model.setEnabled(editable);
 
         boolean external = agent.getKind() == AgentKind.EXTERNAL;
@@ -213,11 +239,15 @@ public class AgentView extends Div implements BeforeEnterObserver {
         if (external) {
             setup.add(jobPanel);
         } else {
+            for (String key : warnings.forAgent(cfg)) {
+                setup.add(Dom.div("ap-banner ap-warn", Dom.span(null, getTranslation(key))));
+            }
             setup.add(jobPanel, skillsPanel(), sourcesPanel());
         }
-        if (editable) {
+        if (canEditAgent) {
             setup.add(new ApiAccessPanel(agentId, agent.getKind(), apiKeys));
         }
+        setup.add(new HistoryPanel(agents, approvals, ApprovalService.ItemType.AGENT, agentId));
 
         Div config = Dom.div("ap-col ap-config", setup, guardColumn());
         return config;
@@ -225,13 +255,16 @@ public class AgentView extends Div implements BeforeEnterObserver {
 
     private Div skillsPanel() {
         Div rows = Dom.div("ap-rows");
-        List<Skill> list = agent.getSkills().stream().sorted(Comparator.comparing(Skill::getName)).toList();
+        List<Skill> list = cfg.skillIds().stream().map(skillsById::get).filter(java.util.Objects::nonNull).sorted(Comparator.comparing(Skill::getName)).toList();
         for (Skill s : list) {
             NativeButton open = Dom.button("ap-linkish", s.getName(), () -> UI.getCurrent().navigate(SkillView.class,
                     new RouteParameters("skillId", s.getId().toString())));
             Div main = Dom.div("ap-row-main", open, Dom.span("ap-hint", s.getDescription()));
             Div row = Dom.div("ap-row", Dom.span("ap-ico", Dom.icon(VaadinIcon.MAGIC, 18)), main,
                     Dom.span("ap-badge ap-t-" + capitalize(s.getType().name()), Labels.of(this, s.getType())));
+            if (!s.isUsable()) {
+                row.add(Dom.span("ap-pill ap-warn", getTranslation("agent.skillNotAvailable")));
+            }
             if (editable) {
                 row.add(Dom.iconButton("ap-iconbtn", VaadinIcon.CLOSE_SMALL, getTranslation("action.remove", s.getName()), () -> {
                     if (Feedback.run(this, () -> agents.removeSkill(agentId, s.getId()))) {
@@ -254,7 +287,7 @@ public class AgentView extends Div implements BeforeEnterObserver {
 
     private Div sourcesPanel() {
         Div rows = Dom.div("ap-rows");
-        List<DataSource> list = agent.getSources().stream().sorted(Comparator.comparing(DataSource::getName)).toList();
+        List<DataSource> list = cfg.sourceIds().stream().map(sourcesById::get).filter(java.util.Objects::nonNull).sorted(Comparator.comparing(DataSource::getName)).toList();
         for (DataSource s : list) {
             Div main = Dom.div("ap-row-main", Dom.span(null, s.getName()), Dom.span("ap-hint",
                     getTranslation("source.meta", s.getItemCount(), Labels.unit(this, s.getKind())) + " · "
@@ -282,8 +315,8 @@ public class AgentView extends Div implements BeforeEnterObserver {
     }
 
     private void pickSkills() {
-        var attached = agent.getSkills().stream().map(Skill::getId).collect(java.util.stream.Collectors.toSet());
-        var items = skills.all().stream().filter(s -> !attached.contains(s.getId()))
+        var attached = cfg.skillIds();
+        var items = skills.approved().stream().filter(s -> !attached.contains(s.getId()))
                 .map(s -> new PickerSheet.Item(s.getId(), VaadinIcon.MAGIC, s.getName(), s.getDescription())).toList();
         new PickerSheet(getTranslation("agent.addSkill.title"), getTranslation("agent.addSkill.sub"), items,
                 getTranslation("agent.addSkill.empty"), getTranslation("action.add"), ids -> {
@@ -295,7 +328,7 @@ public class AgentView extends Div implements BeforeEnterObserver {
     }
 
     private void pickSources() {
-        var attached = agent.getSources().stream().map(DataSource::getId).collect(java.util.stream.Collectors.toSet());
+        var attached = cfg.sourceIds();
         var items = sources.all().stream().filter(s -> !attached.contains(s.getId()))
                 .map(s -> new PickerSheet.Item(s.getId(), Labels.icon(s.getKind()), s.getName(),
                         getTranslation("source.meta", s.getItemCount(), Labels.unit(this, s.getKind())))).toList();
@@ -324,16 +357,18 @@ public class AgentView extends Div implements BeforeEnterObserver {
                     para("ap-hint", getTranslation("agent.external.text"))));
         }
         if (testPanel == null || !agentId.equals(testPanelAgent)) {
-            testPanel = new AgentTestPanel(agentId, agent.getName(), agent.getSkills().size(), agent.getSources().size(), chat, rules, executor);
+            testPanel = new AgentTestPanel(agentId, cfg.name(), cfg.skillIds().size(), cfg.sourceIds().size(), chat, rules, executor);
             testPanelAgent = agentId;
         }
+        boolean draftAvailable = canEditAgent && (agents.openVersion(agentId).isPresent() || !agent.isUsable());
+        testPanel.setModes(agent.isUsable(), draftAvailable);
         return Dom.div("ap-col ap-test", testPanel);
     }
 
     private void save() {
         if (Feedback.run(this, () -> agents.update(agentId, name.getValue(), job.getValue(), instructions.getValue(),
                 autonomy.getValue(), ModelTier.valueOf(model.getValue())))) {
-            Feedback.saved(this, "saved");
+            Feedback.saved(this, "agent.draftSaved");
             reload();
         }
     }

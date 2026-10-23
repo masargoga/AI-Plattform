@@ -3,6 +3,12 @@ package com.agenticpilot.ui;
 import com.agenticpilot.agent.Agent;
 import com.agenticpilot.agent.AgentService;
 import com.agenticpilot.audit.AuditEntry;
+import com.agenticpilot.governance.ApprovalService;
+import com.agenticpilot.runtime.BackgroundExecutor;
+import com.agenticpilot.skill.SkillTestService;
+import com.agenticpilot.ui.components.NativeSelect;
+import com.agenticpilot.ui.components.SearchBox;
+import com.vaadin.flow.component.html.Input;
 import com.agenticpilot.audit.AuditOutcome;
 import com.agenticpilot.audit.AuditService;
 import com.agenticpilot.common.CurrentUser;
@@ -62,7 +68,7 @@ import java.util.Map;
 public class PoliciesView extends Div implements BeforeEnterObserver {
 
     private enum Tab {
-        RULES("rules"), CUSTOM("custom"), AUDIT("audit"), RECORDS("records");
+        RULES("rules"), CUSTOM("custom"), APPROVALS("approvals"), AUDIT("audit"), RECORDS("records");
 
         final String path;
 
@@ -88,13 +94,24 @@ public class PoliciesView extends Div implements BeforeEnterObserver {
     private final CurrentUser currentUser;
     private final RuleSheets ruleSheets;
     private final PendingActionService pendingActions;
+    private final ApprovalService approvalService;
+    private final SkillTestService skillTests;
+    private final BackgroundExecutor executor;
 
     private Tab tab = Tab.RULES;
-    private AuditOutcome auditFilter;
+    private AuditOutcome auditOutcome;
+    private java.util.UUID auditAgent;
+    private String auditText = "";
+    private LocalDate auditFrom;
+    private LocalDate auditTo;
     private final Div content = new Div();
 
     public PoliciesView(WorkspacePolicyService policies, AgentService agents, AgentGuardrailService guardrails, CustomRuleService rules,
-                        AuditService audit, ComplianceService compliance, CurrentUser currentUser, PendingActionService pendingActions) {
+                        AuditService audit, ComplianceService compliance, CurrentUser currentUser, PendingActionService pendingActions,
+                        ApprovalService approvalService, SkillTestService skillTests, BackgroundExecutor executor) {
+        this.approvalService = approvalService;
+        this.skillTests = skillTests;
+        this.executor = executor;
         this.pendingActions = pendingActions;
         this.policies = policies;
         this.agents = agents;
@@ -120,6 +137,7 @@ public class PoliciesView extends Div implements BeforeEnterObserver {
         add(Dom.div("ap-ph", Dom.div(null, new H1(getTranslation("nav.policies")), sub)));
         Segmented<Tab> seg = new Segmented<>(List.of(new Segmented.Option<>(Tab.RULES, getTranslation("policies.tab.rules")),
                 new Segmented.Option<>(Tab.CUSTOM, getTranslation("policies.tab.custom")),
+                new Segmented.Option<>(Tab.APPROVALS, getTranslation("policies.tab.approvals") + approvalCount()),
                 new Segmented.Option<>(Tab.AUDIT, getTranslation("policies.tab.audit")),
                 new Segmented.Option<>(Tab.RECORDS, getTranslation("policies.tab.records"))), tab).onChange(t -> {
             tab = t;
@@ -135,6 +153,7 @@ public class PoliciesView extends Div implements BeforeEnterObserver {
         content.add(switch (tab) {
             case RULES -> rulesTab();
             case CUSTOM -> customTab();
+            case APPROVALS -> approvalsTab();
             case AUDIT -> auditTab();
             case RECORDS -> recordsTab();
         });
@@ -289,24 +308,120 @@ public class PoliciesView extends Div implements BeforeEnterObserver {
         return col;
     }
 
+    // ----- approvals -----
+
+    private String approvalCount() {
+        int n = approvalService.pendingCount();
+        return n == 0 ? "" : " (" + n + ")";
+    }
+
+    private Div approvalsTab() {
+        Div rows = Dom.div("ap-rows");
+        List<ApprovalService.ReviewItem> pending = approvalService.pending();
+        for (ApprovalService.ReviewItem i : pending) {
+            Span name = Dom.span(null, i.name() + " v" + i.versionNumber());
+            name.getStyle().set("font-weight", "600");
+            Div row = Dom.div("ap-row ap-cr", Dom.div("ap-row-main", name,
+                    Dom.span("ap-hint", getTranslation("approvals.meta", i.author().getDisplayName(), formatTime(i.submittedAt().atZone(ZoneId.systemDefault())),
+                            i.note() == null ? "" : i.note()))),
+                    Dom.span("ap-pill", getTranslation("approvals.type." + i.type().name())));
+            if (i.isNew()) {
+                row.add(Dom.span("ap-pill ap-warn", getTranslation("approvals.new")));
+            }
+            if (i.mine()) {
+                row.add(Dom.span("ap-pill", getTranslation("approvals.yours")));
+            }
+            row.add(Dom.button("ap-btn ap-sm" + (i.mine() ? "" : " ap-primary"), getTranslation("rules.review"), () -> review(i)));
+            rows.add(row);
+        }
+        if (pending.isEmpty()) {
+            rows.add(Dom.div("ap-rowempty", Dom.span(null, getTranslation("approvals.empty"))));
+        }
+        return Dom.div("ap-col", Dom.div("ap-card ap-panel", Dom.div("ap-panel-h", Dom.div(null, new H2(getTranslation("approvals.title")),
+                para(getTranslation("approvals.sub")))), rows));
+    }
+
+    private void review(ApprovalService.ReviewItem item) {
+        if (item.type() == ApprovalService.ItemType.RULE) {
+            ruleSheets.open(item.itemId(), this::build);
+            return;
+        }
+        new VersionReviewSheet(approvalService, skillTests, executor, currentUser, item, this::build).open();
+    }
+
     // ----- audit log -----
 
+    private AuditService.Filter filter() {
+        return new AuditService.Filter(auditOutcome, auditAgent, auditText, auditFrom, auditTo);
+    }
+
     private Div auditTab() {
-        List<AuditEntry> list = audit.latest(auditFilter, 200);
         Div card = Dom.div("ap-card ap-panel", Dom.div("ap-panel-h", Dom.div(null, new H2(getTranslation("audit.title")), para(getTranslation("audit.sub"))),
                 Dom.button("ap-btn ap-sm", getTranslation("audit.export"), this::export)));
+        Div entries = new Div();
+        Runnable fill = () -> fillAudit(entries);
+
         List<Segmented.Option<AuditOutcome>> options = new java.util.ArrayList<>();
         options.add(new Segmented.Option<>(null, getTranslation("filter.all")));
         for (AuditOutcome o : AuditOutcome.values()) {
             options.add(new Segmented.Option<>(o, Labels.of(this, o)));
         }
-        card.add(new Segmented<>(options, auditFilter).onChange(f -> {
-            auditFilter = f;
-            paint();
-        }));
+        Segmented<AuditOutcome> outcome = new Segmented<>(options, auditOutcome).onChange(f -> {
+            auditOutcome = f;
+            fill.run();
+        });
+
+        SearchBox search = new SearchBox("audit-search", getTranslation("audit.search"), getTranslation("audit.search"), q -> {
+            auditText = q;
+            fill.run();
+        });
+        List<NativeSelect.Choice> agentChoices = new java.util.ArrayList<>();
+        agentChoices.add(new NativeSelect.Choice("", getTranslation("audit.allAgents")));
+        for (Agent a : agents.search(null, "")) {
+            agentChoices.add(new NativeSelect.Choice(a.getId().toString(), a.getName()));
+        }
+        NativeSelect agent = new NativeSelect("audit-agent", agentChoices, auditAgent == null ? "" : auditAgent.toString());
+        agent.getElement().setAttribute("aria-label", getTranslation("audit.agent"));
+        agent.addValueChangeListener(e -> {
+            auditAgent = e.getValue() == null || e.getValue().isEmpty() ? null : java.util.UUID.fromString(e.getValue());
+            fill.run();
+        });
+        Input from = dateInput("audit-from", getTranslation("audit.from"), auditFrom, d -> {
+            auditFrom = d;
+            fill.run();
+        });
+        Input to = dateInput("audit-to", getTranslation("audit.to"), auditTo, d -> {
+            auditTo = d;
+            fill.run();
+        });
+        card.add(outcome, Dom.div("ap-toolbar", search, agent, new FormField(getTranslation("audit.from"), "audit-from", from, null),
+                new FormField(getTranslation("audit.to"), "audit-to", to, null)));
+        card.add(entries);
+        fill.run();
+        return Dom.div("ap-col", card);
+    }
+
+    private Input dateInput(String id, String label, LocalDate value, java.util.function.Consumer<LocalDate> onChange) {
+        Input in = new Input(com.vaadin.flow.data.value.ValueChangeMode.ON_CHANGE);
+        in.setId(id);
+        in.setType("date");
+        in.getElement().setAttribute("aria-label", label);
+        in.setValue(value == null ? "" : value.toString());
+        in.addValueChangeListener(e -> {
+            try {
+                onChange.accept(e.getValue() == null || e.getValue().isBlank() ? null : LocalDate.parse(e.getValue()));
+            } catch (java.time.format.DateTimeParseException ex) {
+                onChange.accept(null);
+            }
+        });
+        return in;
+    }
+
+    private void fillAudit(Div entries) {
+        entries.removeAll();
+        List<AuditEntry> list = audit.search(filter(), 200);
         Map<java.util.UUID, PendingAction> actions = pendingActions.forAuditEntries(list.stream()
                 .filter(x -> x.getOutcome() == AuditOutcome.NEEDS_APPROVAL).map(AuditEntry::getId).toList());
-        Div entries = new Div();
         if (list.isEmpty()) {
             entries.add(Dom.div("ap-rowempty", Dom.span(null, getTranslation("audit.empty"))));
         }
@@ -337,8 +452,6 @@ public class PoliciesView extends Div implements BeforeEnterObserver {
             }
             entries.add(row);
         }
-        card.add(entries);
-        return Dom.div("ap-col", card);
     }
 
     private void decide(PendingAction action, boolean approve) {
@@ -355,7 +468,7 @@ public class PoliciesView extends Div implements BeforeEnterObserver {
     }
 
     private void export() {
-        String csv = audit.exportCsv(auditFilter);
+        String csv = audit.exportCsv(filter());
         StreamResource resource = new StreamResource("audit-log.csv", () -> new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8)));
         resource.setContentType("text/csv; charset=utf-8");
         Anchor link = new Anchor(resource, "");

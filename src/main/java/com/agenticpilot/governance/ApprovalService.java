@@ -123,6 +123,35 @@ public class ApprovalService {
         };
     }
 
+    /** What changed in a version compared with the version before it (everything for the first one). Skills and agents only. */
+    @Transactional(readOnly = true)
+    public List<Change> compare(ItemType type, UUID itemId, UUID versionId) {
+        return switch (type) {
+            case SKILL -> {
+                List<SkillVersion> all = skills.history(itemId);
+                int i = indexOf(all, versionId);
+                SkillService.Content after = skills.parse(all.get(i));
+                yield skillChanges(i + 1 < all.size() ? skills.parse(all.get(i + 1)) : null, after);
+            }
+            case AGENT -> {
+                List<AgentVersion> all = agents.history(itemId);
+                int i = indexOf(all, versionId);
+                AgentService.Content after = agents.parse(all.get(i));
+                yield agentChanges(i + 1 < all.size() ? agents.parse(all.get(i + 1)) : null, after);
+            }
+            case RULE -> throw new UnsupportedOperationException("Rules show their changes in their own sheet");
+        };
+    }
+
+    private static int indexOf(List<? extends ItemVersion> all, UUID versionId) {
+        for (int i = 0; i < all.size(); i++) {
+            if (all.get(i).getId().equals(versionId)) {
+                return i;
+            }
+        }
+        throw new com.agenticpilot.common.NotFoundException("Version");
+    }
+
     /** Approves or rejects (comment required) an entry. Skills and agents are decided here; rules by their own sheet. */
     public void approve(ItemType type, UUID versionId, String comment) {
         switch (type) {

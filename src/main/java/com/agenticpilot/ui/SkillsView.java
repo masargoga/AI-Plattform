@@ -2,6 +2,8 @@ package com.agenticpilot.ui;
 
 import com.agenticpilot.agent.Agent;
 import com.agenticpilot.agent.AgentService;
+import com.agenticpilot.governance.ChangeStatus;
+import com.agenticpilot.governance.Lifecycle;
 import com.agenticpilot.skill.Skill;
 import com.agenticpilot.skill.SkillService;
 import com.agenticpilot.skill.SkillType;
@@ -17,6 +19,7 @@ import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.NativeButton;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
@@ -33,6 +36,8 @@ public class SkillsView extends Div {
     private final AgentService agents;
 
     private SkillType filter;
+    private Lifecycle state;
+    private java.util.Map<java.util.UUID, com.agenticpilot.skill.SkillVersion> openVersions = java.util.Map.of();
     private String query = "";
     private final Div grid = Dom.div("ap-grid");
 
@@ -49,14 +54,24 @@ public class SkillsView extends Div {
             options.add(new Segmented.Option<>(t, Labels.of(this, t)));
         }
         Segmented<SkillType> seg = new Segmented<>(options, null).onChange(t -> { filter = t; refresh(); });
-        add(header, Dom.div("ap-toolbar", seg, new SearchBox("skill-search", getTranslation("skills.search"),
+        add(header, Dom.div("ap-toolbar", seg, stateFilter(), new SearchBox("skill-search", getTranslation("skills.search"),
                 getTranslation("skills.search"), q -> { query = q; refresh(); })), grid);
         refresh();
     }
 
+    private Segmented<Lifecycle> stateFilter() {
+        List<Segmented.Option<Lifecycle>> states = new java.util.ArrayList<>();
+        states.add(new Segmented.Option<>(null, getTranslation("filter.anyState")));
+        for (Lifecycle l : Lifecycle.values()) {
+            states.add(new Segmented.Option<>(l, getTranslation("lifecycle." + l.name())));
+        }
+        return new Segmented<>(states, null).onChange(v -> { state = v; refresh(); });
+    }
+
     private void refresh() {
         grid.removeAll();
-        List<Skill> list = skills.search(filter, query);
+        List<Skill> list = skills.search(filter, query).stream().filter(s -> state == null || s.getLifecycle() == state).toList();
+        openVersions = skills.openVersions(list.stream().map(Skill::getId).toList());
         if (list.isEmpty()) {
             grid.add(Dom.div("ap-empty", Dom.span(null, getTranslation(skills.all().isEmpty() ? "skills.empty" : "skills.noMatch"))));
         }
@@ -77,8 +92,14 @@ public class SkillsView extends Div {
 
         H3 title = new H3(s.getName());
         title.getStyle().set("margin", "0");
+        Span top = Dom.span("ap-num", s.getLiveVersion() == 0 ? "" : "v" + s.getLiveVersion());
+        if (s.getLifecycle() != Lifecycle.APPROVED) {
+            top.add(Dom.span("ap-pill" + LifecycleBar.statusTone(s.getLifecycle()), getTranslation("lifecycle." + s.getLifecycle().name())));
+        } else if (openVersions.containsKey(s.getId())) {
+            top.add(Dom.span("ap-pill ap-warn", getTranslation(openVersions.get(s.getId()).getStatus() == ChangeStatus.PENDING ? "lifecycle.changeInReview" : "lifecycle.hasDraft")));
+        }
         card.add(Dom.div("ap-sc-top", Dom.span("ap-badge ap-t-" + s.getType().name().charAt(0) + s.getType().name().substring(1).toLowerCase(),
-                        Labels.of(this, s.getType())), Dom.span("ap-num", "v" + s.getLiveVersion())),
+                        Labels.of(this, s.getType())), top),
                 Dom.div(null, title, para(s.getDescription().isEmpty() ? getTranslation("skills.noDescription") : s.getDescription())));
 
         List<Agent> users = agents.usingSkill(s.getId());

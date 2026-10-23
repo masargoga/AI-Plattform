@@ -6,6 +6,7 @@ import com.agenticpilot.runtime.AgentChatService;
 import com.agenticpilot.runtime.ChatReply;
 import com.agenticpilot.ui.components.Dom;
 import com.agenticpilot.ui.components.Feedback;
+import com.agenticpilot.ui.components.Segmented;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
@@ -39,6 +40,9 @@ class AgentTestPanel extends Div {
 
     private UUID conversationId;
     private boolean busy;
+    private boolean draft;
+    private final Segmented<Boolean> modeSwitch;
+    private final Div draftBanner = Dom.div("ap-banner ap-warn", Dom.span(null, ""));
     private final Div messages = Dom.div("ap-msgs");
     private final Div prompts = Dom.div("ap-prompts");
     private final Input input = new Input(ValueChangeMode.EAGER);
@@ -55,7 +59,16 @@ class AgentTestPanel extends Div {
         Div titles = Dom.div(null, new H2(getTranslation("agent.test.title", agentName)),
                 Dom.span("ap-hint", getTranslation("chat.using", getTranslation("count.skills", skillCount), getTranslation("count.sources", sourceCount))));
         titles.getChildren().findFirst().ifPresent(h -> h.getElement().getStyle().set("margin", "0"));
-        add(Dom.div("ap-tc-h", titles, Dom.button("ap-btn ap-ghost ap-sm", getTranslation("chat.reset"), this::reset)));
+        modeSwitch = new Segmented<>(List.of(new Segmented.Option<>(false, getTranslation("chat.mode.approved")),
+                new Segmented.Option<>(true, getTranslation("chat.mode.draft"))), false).onChange(v -> {
+            draft = v;
+            draftBanner.setVisible(v);
+            reset();
+        });
+        modeSwitch.setVisible(false);
+        draftBanner.getChildren().findFirst().ifPresent(c -> c.getElement().setText(getTranslation("chat.draftBanner")));
+        draftBanner.setVisible(false);
+        add(Dom.div("ap-tc-h", titles, modeSwitch, Dom.button("ap-btn ap-ghost ap-sm", getTranslation("chat.reset"), this::reset)), draftBanner);
 
         messages.getElement().setAttribute("aria-live", "polite");
         messages.setId("chat-messages");
@@ -71,6 +84,21 @@ class AgentTestPanel extends Div {
         Div composer = Dom.div("ap-composer", input, send);
         add(composer);
         reset();
+    }
+
+    /**
+     * Which versions can be tested: the approved one, the draft, or both. A draft only exists for the owner's or an Admin's own
+     * test; with both available a switch shows. With only a draft the chat tests the draft.
+     */
+    void setModes(boolean approvedAvailable, boolean draftAvailable) {
+        boolean wasDraft = draft;
+        draft = draftAvailable && (!approvedAvailable || draft);
+        modeSwitch.setVisible(approvedAvailable && draftAvailable);
+        modeSwitch.setValue(draft);
+        draftBanner.setVisible(draft);
+        if (wasDraft != draft) {
+            reset();
+        }
     }
 
     private void reset() {
@@ -117,11 +145,12 @@ class AgentTestPanel extends Div {
 
         UI ui = UI.getCurrent();
         UUID conversation = conversationId;
+        boolean useDraft = draft;
         executor.submit(() -> {
             ChatReply reply = null;
             String error = null;
             try {
-                reply = chat.send(agentId, conversation, text);
+                reply = chat.send(agentId, conversation, text, useDraft);
             } catch (com.agenticpilot.common.InvalidInputException e) {
                 error = ui.getTranslation(e.getMessage(), e.getArgs());
             } catch (RuntimeException e) {

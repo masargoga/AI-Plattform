@@ -2,7 +2,13 @@ package com.agenticpilot.ui;
 
 import com.agenticpilot.agent.Agent;
 import com.agenticpilot.agent.AgentService;
+import com.agenticpilot.common.CurrentUser;
+import com.agenticpilot.governance.ApprovalService;
+import com.agenticpilot.governance.ChangeStatus;
+import com.agenticpilot.governance.Lifecycle;
 import com.agenticpilot.runtime.SkillRunService;
+import com.agenticpilot.skill.SkillTestService;
+import com.agenticpilot.ui.components.SwitchButton;
 import com.agenticpilot.skill.OutputFormat;
 import com.agenticpilot.skill.Skill;
 import com.agenticpilot.skill.SkillService;
@@ -47,8 +53,15 @@ public class SkillView extends Div implements BeforeEnterObserver {
     private final AgentService agents;
     private final SkillRunService skillRun;
     private final BackgroundExecutor executor;
+    private final SkillTestService tests;
+    private final ApprovalService approvals;
+    private final CurrentUser currentUser;
 
     private UUID skillId;
+    private SkillService.Content content;
+    private boolean canEditSkill;
+    private boolean useDraft;
+    private boolean complianceRelevant;
     private Skill skill;
     private boolean editable;
     private Tab tab = Tab.EDIT;
@@ -61,8 +74,13 @@ public class SkillView extends Div implements BeforeEnterObserver {
     private Segmented<OutputFormat> output;
     private final Set<Tool> tools = EnumSet.noneOf(Tool.class);
     private Div layout;
+    private TestCasesPanel testCases;
 
-    public SkillView(SkillService skills, AgentService agents, SkillRunService skillRun, BackgroundExecutor executor) {
+    public SkillView(SkillService skills, AgentService agents, SkillRunService skillRun, BackgroundExecutor executor,
+                     SkillTestService tests, ApprovalService approvals, CurrentUser currentUser) {
+        this.tests = tests;
+        this.approvals = approvals;
+        this.currentUser = currentUser;
         this.skills = skills;
         this.agents = agents;
         this.skillRun = skillRun;
@@ -89,18 +107,23 @@ public class SkillView extends Div implements BeforeEnterObserver {
 
     private void build() {
         removeAll();
-        editable = skills.canEdit(skill);
+        content = skills.editable(skillId);
+        canEditSkill = skills.canEdit(skill);
+        editable = canEditSkill && !LifecycleBar.contentLocked(skills, skill);
+        boolean hasOpenDraft = skills.openVersion(skillId).isPresent();
+        useDraft = skill.getLifecycle() != Lifecycle.APPROVED || hasOpenDraft;
+        complianceRelevant = content.complianceRelevant();
         tools.clear();
-        tools.addAll(skill.getTools());
+        tools.addAll(content.tools());
         List<Agent> users = agents.usingSkill(skillId);
 
         add(Dom.button("ap-back", VaadinIcon.ANGLE_LEFT, getTranslation("nav.skills"), () -> UI.getCurrent().navigate(SkillsView.class)));
 
-        name = FormField.textInput("skill-name", skill.getName(), SkillService.NAME_MAX);
+        name = FormField.textInput("skill-name", content.name(), SkillService.NAME_MAX);
         name.addClassName("ap-title-input");
         name.getElement().setAttribute("aria-label", getTranslation("skill.name"));
         name.setEnabled(editable);
-        Paragraph sub = new Paragraph(getTranslation("skill.version", skill.getLiveVersion()) + " · "
+        Paragraph sub = new Paragraph((skill.getLiveVersion() == 0 ? getTranslation("skill.notApproved") : getTranslation("skill.version", skill.getLiveVersion())) + " · "
                 + (users.isEmpty() ? getTranslation("skills.unused") : getTranslation("skills.usedBy", users.size()))
                 + " · " + getTranslation("skill.createdBy", skill.getCreatedBy().getDisplayName()));
         sub.addClassName("ap-sub");
@@ -108,9 +131,11 @@ public class SkillView extends Div implements BeforeEnterObserver {
         emb.addClassNames("ap-emb", "ap-lg", "ap-sk");
         Div actions = Dom.div("ap-ah-actions");
         if (editable) {
-            actions.add(Dom.button("ap-btn ap-primary", VaadinIcon.CHECK, getTranslation("skill.save"), this::save));
+            actions.add(Dom.button("ap-btn ap-primary", VaadinIcon.CHECK, getTranslation("skill.saveDraft"), this::save));
         }
         add(Dom.div("ap-ah", emb, Dom.div("ap-ah-main", name, sub), actions));
+        add(new LifecycleBar(skills, skill, canEditSkill, currentUser.require().isAdmin(), currentUser.require().getId(), "skill",
+                this::reload, () -> UI.getCurrent().navigate(SkillsView.class)));
         if (!editable) {
             add(Dom.div("ap-readonly-note", Dom.span(null, getTranslation("skill.readonly", skill.getCreatedBy().getDisplayName()))));
         }
@@ -128,17 +153,17 @@ public class SkillView extends Div implements BeforeEnterObserver {
     }
 
     private Div editColumn() {
-        Paragraph typeHint = new Paragraph(Labels.hint(this, skill.getType()));
+        Paragraph typeHint = new Paragraph(Labels.hint(this, content.type()));
         typeHint.addClassName("ap-hint");
-        type = new Segmented<>(Arrays.stream(SkillType.values()).map(t -> new Segmented.Option<>(t, Labels.of(this, t))).toList(), skill.getType());
+        type = new Segmented<>(Arrays.stream(SkillType.values()).map(t -> new Segmented.Option<>(t, Labels.of(this, t))).toList(), content.type());
         type.onChange(t -> typeHint.setText(Labels.hint(this, t)));
         type.setEnabled(editable);
 
-        description = FormField.textInput("skill-desc", skill.getDescription(), 500);
+        description = FormField.textInput("skill-desc", content.description(), 500);
         description.setEnabled(editable);
-        trigger = new NativeTextArea("skill-trigger", skill.getTriggerText(), 2, 1000);
+        trigger = new NativeTextArea("skill-trigger", content.triggerText(), 2, 1000);
         trigger.setEnabled(editable);
-        instructions = new NativeTextArea("skill-instructions", skill.getInstructions(), 9, 8000).asMono();
+        instructions = new NativeTextArea("skill-instructions", content.instructions(), 9, 8000).asMono();
         instructions.setEnabled(editable);
 
         Div toolChips = Dom.div("ap-tchips");
@@ -164,7 +189,7 @@ public class SkillView extends Div implements BeforeEnterObserver {
             });
             toolChips.add(chip);
         }
-        output = new Segmented<>(Arrays.stream(OutputFormat.values()).map(o -> new Segmented.Option<>(o, Labels.of(this, o))).toList(), skill.getOutputFormat());
+        output = new Segmented<>(Arrays.stream(OutputFormat.values()).map(o -> new Segmented.Option<>(o, Labels.of(this, o))).toList(), content.outputFormat());
         output.setEnabled(editable);
 
         Div panel = Dom.div("ap-card ap-panel",
@@ -173,18 +198,34 @@ public class SkillView extends Div implements BeforeEnterObserver {
                 new FormField(getTranslation("skill.trigger"), "skill-trigger", trigger, getTranslation("skill.trigger.hint")),
                 new FormField(getTranslation("skill.instructions"), "skill-instructions", instructions, getTranslation("skill.instructions.hint")),
                 new FormField(getTranslation("skill.tools"), null, toolChips, getTranslation("skill.tools.hint")),
-                new FormField(getTranslation("skill.output"), null, Dom.div(null, output), null));
+                new FormField(getTranslation("skill.output"), null, Dom.div(null, output), null),
+                new FormField(getTranslation("skill.compliance"), null, Dom.div("ap-ctl-inline", compliance(), Dom.span(null, getTranslation("skill.compliance.label"))),
+                        getTranslation("skill.compliance.hint")));
         panel.getChildren().findFirst().ifPresent(c -> ((Div) c).add(typeHint));
         return Dom.div("ap-col ap-config", panel);
     }
 
+    private SwitchButton compliance() {
+        SwitchButton sw = new SwitchButton(complianceRelevant, getTranslation("skill.compliance.label"), on -> complianceRelevant = on);
+        sw.setEnabled(editable);
+        return sw;
+    }
+
     private Div sideColumn(List<Agent> users) {
+        testCases = new TestCasesPanel(skillId, tests, executor, () -> useDraft, canEditSkill);
         NativeTextArea sample = new NativeTextArea("skill-try-input", "", 4, SkillRunService.MAX_INPUT_CHARS);
         Div result = Dom.div("ap-result");
         result.setId("skill-try-result");
         result.setVisible(false);
         Paragraph resultHint = para("ap-hint", getTranslation("skill.try.hint"));
         resultHint.setVisible(false);
+        boolean hasDraft = skills.openVersion(skillId).isPresent() || skill.getLifecycle() != Lifecycle.APPROVED;
+        Segmented<Boolean> mode = new Segmented<>(List.of(new Segmented.Option<>(false, getTranslation("skill.try.approved")),
+                new Segmented.Option<>(true, getTranslation("skill.try.draft"))), useDraft).onChange(v -> {
+            useDraft = v;
+            testCases.refresh();
+        });
+        mode.setEnabled(hasDraft && skill.getLifecycle() == Lifecycle.APPROVED);
         NativeButton run = Dom.button("ap-btn ap-primary", VaadinIcon.PLAY, getTranslation("skill.run"), null);
         run.addClickListener(e -> {
             String text = sample.getValue();
@@ -199,10 +240,11 @@ public class SkillView extends Div implements BeforeEnterObserver {
             resultHint.setVisible(false);
             com.vaadin.flow.component.UI ui = com.vaadin.flow.component.UI.getCurrent();
             UUID id = skillId;
+            boolean draftRun = useDraft;
             executor.submit(() -> {
                 String out;
                 try {
-                    out = skillRun.run(id, text).text();
+                    out = skillRun.run(id, text, draftRun).text();
                 } catch (com.agenticpilot.common.InvalidInputException ex) {
                     out = ui.getTranslation(ex.getMessage(), ex.getArgs());
                 } catch (RuntimeException ex) {
@@ -219,6 +261,8 @@ public class SkillView extends Div implements BeforeEnterObserver {
         });
         Div tryPanel = Dom.div("ap-card ap-panel",
                 Dom.div("ap-panel-h", Dom.div(null, new H2(getTranslation("skill.try.title")), para(getTranslation("skill.try.sub")))),
+                hasDraft ? new FormField(getTranslation("skill.try.which"), null, Dom.div(null, mode), useDraft ? getTranslation("skill.try.draftBanner") : null)
+                        : new Div(),
                 new FormField(getTranslation("skill.try.input"), "skill-try-input", sample, null), run, result, resultHint);
 
         Div rows = Dom.div("ap-rows");
@@ -229,14 +273,15 @@ public class SkillView extends Div implements BeforeEnterObserver {
         }
         Div usedBy = Dom.div("ap-card ap-panel", new H2(getTranslation("skill.usedBy")),
                 users.isEmpty() ? Dom.div("ap-rowempty", Dom.span(null, getTranslation("skill.usedBy.empty"))) : rows);
-        return Dom.div("ap-col ap-test", tryPanel, usedBy);
+        return Dom.div("ap-col ap-test", tryPanel, testCases, usedBy,
+                new HistoryPanel(skills, approvals, ApprovalService.ItemType.SKILL, skillId));
     }
 
     private void save() {
         var content = new SkillService.Content(name.getValue(), type.getValue(), description.getValue(), trigger.getValue(),
-                instructions.getValue(), Set.copyOf(tools), output.getValue());
+                instructions.getValue(), Set.copyOf(tools), output.getValue(), complianceRelevant);
         if (Feedback.run(this, () -> skills.saveDraft(skillId, content))) {
-            Feedback.saved(this, "skill.saved");
+            Feedback.saved(this, "skill.draftSaved");
             reload();
         }
     }

@@ -44,7 +44,7 @@ class NewAgentSheet extends Sheet {
         this.agents = agents;
         this.skills = skills;
         this.sources = sources;
-        this.allSkills = skills.all();
+        this.allSkills = skills.approved();
         this.allSources = sources.all();
         render();
     }

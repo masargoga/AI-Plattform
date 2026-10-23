@@ -2,6 +2,8 @@ package com.agenticpilot.ui;
 
 import com.agenticpilot.agent.Agent;
 import com.agenticpilot.agent.AgentService;
+import com.agenticpilot.governance.ChangeStatus;
+import com.agenticpilot.governance.Lifecycle;
 import com.agenticpilot.agent.AgentStatus;
 import com.agenticpilot.guardrail.AgentGuardrailService;
 import com.agenticpilot.guardrail.GuardrailScore;
@@ -43,6 +45,8 @@ public class AgentsView extends Div {
     private final AgentGuardrailService guardrails;
 
     private AgentStatus filter;
+    private Lifecycle state;
+    private java.util.Map<java.util.UUID, com.agenticpilot.agent.AgentVersion> openVersions = java.util.Map.of();
     private String query = "";
     private final Div grid = Dom.div("ap-grid");
     private final Div header = new Div();
@@ -63,7 +67,7 @@ public class AgentsView extends Div {
                 new Segmented.Option<>(AgentStatus.ACTIVE, getTranslation("filter.active")),
                 new Segmented.Option<>(AgentStatus.PAUSED, getTranslation("filter.paused"))), null)
                 .onChange(v -> { filter = v; refresh(); });
-        add(Dom.div("ap-toolbar", seg, new SearchBox("agent-search", getTranslation("agents.search"),
+        add(Dom.div("ap-toolbar", seg, stateFilter(), new SearchBox("agent-search", getTranslation("agents.search"),
                 getTranslation("agents.search"), q -> { query = q; refresh(); })), grid);
         refresh();
     }
@@ -89,8 +93,18 @@ public class AgentsView extends Div {
         return how;
     }
 
+    private Segmented<Lifecycle> stateFilter() {
+        List<Segmented.Option<Lifecycle>> states = new java.util.ArrayList<>();
+        states.add(new Segmented.Option<>(null, getTranslation("filter.anyState")));
+        for (Lifecycle l : Lifecycle.values()) {
+            states.add(new Segmented.Option<>(l, getTranslation("lifecycle." + l.name())));
+        }
+        return new Segmented<>(states, null).onChange(v -> { state = v; refresh(); });
+    }
+
     private void refresh() {
-        List<Agent> list = agents.search(filter, query);
+        List<Agent> list = agents.search(filter, query).stream().filter(a -> state == null || a.getLifecycle() == state).toList();
+        openVersions = agents.openVersions(list.stream().map(Agent::getId).toList());
         long active = agents.search(AgentStatus.ACTIVE, "").size();
         long total = agents.search(null, "").size();
         header.removeAll();
@@ -132,13 +146,18 @@ public class AgentsView extends Div {
         Div id = Dom.div("ap-ac-id", new H3(a.getName()), para(null, a.getJob()));
         id.getChildren().findFirst().ifPresent(h -> h.getElement().getStyle().set("margin", "0"));
         Div top = Dom.div("ap-ac-top", new Emblem(a, null), id);
-        if (agents.canEdit(a)) {
+        if (agents.canEdit(a) && a.isUsable()) {
             SwitchButton sw = new SwitchButton(on, getTranslation(on ? "agents.pause" : "agents.activate", a.getName()), checked -> {
                 Feedback.run(this, () -> agents.setStatus(a.getId(), checked ? AgentStatus.ACTIVE : AgentStatus.PAUSED));
                 refresh();
             });
             sw.getElement().executeJs("this.addEventListener('click', e => e.stopPropagation()); this.addEventListener('keydown', e => e.stopPropagation())");
             top.add(sw);
+        }
+        if (a.getLifecycle() != Lifecycle.APPROVED) {
+            top.add(Dom.span("ap-pill" + LifecycleBar.statusTone(a.getLifecycle()), getTranslation("lifecycle." + a.getLifecycle().name())));
+        } else if (openVersions.containsKey(a.getId())) {
+            top.add(Dom.span("ap-pill ap-warn", getTranslation(openVersions.get(a.getId()).getStatus() == ChangeStatus.PENDING ? "lifecycle.changeInReview" : "lifecycle.hasDraft")));
         }
         card.add(top);
 
@@ -165,8 +184,9 @@ public class AgentsView extends Div {
         Div grow = new Div();
         grow.getStyle().set("flex", "1");
         Div dot = Dom.div(on ? "ap-dot" : "ap-dot ap-paused");
-        foot.add(grow, Dom.span(null, dot, Dom.span(null, getTranslation(on ? "status.active" : "status.paused") + " · "
-                + Labels.ago(this, a.getLastRun(), "time.never"))));
+        foot.add(grow, a.isUsable()
+                ? Dom.span(null, dot, Dom.span(null, getTranslation(on ? "status.active" : "status.paused") + " · " + Labels.ago(this, a.getLastRun(), "time.never")))
+                : Dom.span(null, Dom.span(null, getTranslation("agents.notApproved"))));
         card.add(foot);
         return card;
     }

@@ -4,7 +4,10 @@ import com.agenticpilot.agent.Agent;
 import com.agenticpilot.agent.AgentService;
 import com.agenticpilot.source.DataSource;
 import com.agenticpilot.source.DataSourceService;
+import com.agenticpilot.source.OnFailure;
 import com.agenticpilot.source.SourceKind;
+import com.agenticpilot.source.TrustLevel;
+import com.agenticpilot.ui.components.Segmented;
 import com.agenticpilot.source.AllowedDomain;
 import com.agenticpilot.source.AllowedDomainService;
 import com.agenticpilot.source.SourceDocument;
@@ -99,6 +102,12 @@ public class SourcesView extends Div {
             stack.getElement().setAttribute("title", String.join(", ", users.stream().map(Agent::getName).toList()));
             side.add(stack);
         }
+        side.add(Dom.span("ap-pill" + (s.getTrustLevel() == TrustLevel.AUTHORITATIVE ? " ap-ok" : ""), getTranslation("trust." + s.getTrustLevel().name())));
+        if (s.isReviewOverdue(java.time.LocalDate.now())) {
+            Span overdue = Dom.span("ap-pill ap-warn", getTranslation("sources.reviewOverdue", s.getReviewBy().toString()));
+            side.add(overdue);
+        }
+        side.add(Dom.button("ap-btn ap-sm", VaadinIcon.COG, getTranslation("sources.settings"), () -> openSettings(s)));
         if (s.getKind() == SourceKind.UPLOAD) {
             side.add(Dom.button("ap-btn ap-sm", VaadinIcon.UPLOAD, getTranslation("sources.files"), () -> openFiles(s)));
             row.add(side);
@@ -131,6 +140,65 @@ public class SourcesView extends Div {
                 yield Dom.span("ap-pill " + (stale ? "ap-warn" : "ap-ok"), Dom.span(null, text));
             }
         };
+    }
+
+    private void openSettings(DataSource s) {
+        boolean canEdit = sources.canEdit(s);
+        Sheet sheet = new Sheet(getTranslation("sources.settings.title", s.getName()), getTranslation("sources.settings.sub"));
+        Input owner = FormField.textInput("src-owner", s.getOwnerName(), 80);
+        owner.setEnabled(canEdit);
+        Segmented<TrustLevel> trust = new Segmented<>(List.of(new Segmented.Option<>(TrustLevel.AUTHORITATIVE, getTranslation("trust.AUTHORITATIVE")),
+                new Segmented.Option<>(TrustLevel.INFORMATIONAL, getTranslation("trust.INFORMATIONAL"))), s.getTrustLevel());
+        trust.setEnabled(canEdit);
+        Segmented<OnFailure> failure = new Segmented<>(List.of(new Segmented.Option<>(OnFailure.USE_LAST_COPY, getTranslation("onFailure.USE_LAST_COPY")),
+                new Segmented.Option<>(OnFailure.STOP_AND_REPORT, getTranslation("onFailure.STOP_AND_REPORT"))), s.getOnFailure());
+        failure.setEnabled(canEdit);
+        Input maxAge = FormField.textInput("src-maxage", String.valueOf(s.getMaxAgeDays()), 4);
+        maxAge.setType("number");
+        maxAge.getElement().setAttribute("min", "1");
+        maxAge.setEnabled(canEdit);
+        Input reviewBy = new Input(com.vaadin.flow.data.value.ValueChangeMode.ON_CHANGE);
+        reviewBy.setId("src-review");
+        reviewBy.setType("date");
+        reviewBy.setValue(s.getReviewBy() == null ? "" : s.getReviewBy().toString());
+        reviewBy.setEnabled(canEdit);
+        Input info = FormField.textInput("src-info", s.getVersionInfo(), 200);
+        info.setEnabled(canEdit);
+        sheet.setBody(Dom.div("ap-sg",
+                new FormField(getTranslation("sources.owner"), "src-owner", owner, getTranslation("sources.owner.hint")),
+                new FormField(getTranslation("sources.trust"), null, Dom.div(null, trust), getTranslation("sources.trust.hint")),
+                new FormField(getTranslation("sources.onFailure"), null, Dom.div(null, failure), getTranslation("sources.onFailure.hint")),
+                new FormField(getTranslation("sources.maxAge"), "src-maxage", maxAge, getTranslation("sources.maxAge.hint")),
+                new FormField(getTranslation("sources.reviewBy"), "src-review", reviewBy, getTranslation("sources.reviewBy.hint")),
+                new FormField(getTranslation("sources.versionInfo"), "src-info", info, getTranslation("sources.versionInfo.hint"))));
+        if (!canEdit) {
+            sheet.setFooter(Dom.button("ap-btn ap-primary", getTranslation("action.close"), sheet::close));
+        } else {
+            sheet.setFooter(Dom.button("ap-btn ap-ghost", getTranslation("action.cancel"), sheet::close),
+                    Dom.button("ap-btn ap-primary", getTranslation("action.save"), () -> {
+                        int days;
+                        try {
+                            days = Integer.parseInt(maxAge.getValue().strip());
+                        } catch (NumberFormatException e) {
+                            Feedback.error(getTranslation("error.source.maxAge"));
+                            return;
+                        }
+                        java.time.LocalDate review;
+                        try {
+                            review = reviewBy.getValue() == null || reviewBy.getValue().isBlank() ? null : java.time.LocalDate.parse(reviewBy.getValue());
+                        } catch (java.time.format.DateTimeParseException e) {
+                            Feedback.error(getTranslation("error.invalidChoice"));
+                            return;
+                        }
+                        if (Feedback.run(sheet, () -> sources.updateSettings(s.getId(), new DataSourceService.Settings(owner.getValue(), trust.getValue(),
+                                failure.getValue(), days, review, info.getValue())))) {
+                            sheet.close();
+                            Feedback.saved(this, "sources.settings.saved");
+                            refresh();
+                        }
+                    }));
+        }
+        sheet.open();
     }
 
     private void openConnect() {
