@@ -11,7 +11,17 @@ import com.agenticpilot.api.ApiDtos.CheckResponse;
 import com.agenticpilot.api.ApiDtos.DecisionDto;
 import com.agenticpilot.api.ApiDtos.MatchedRule;
 import com.agenticpilot.api.ApiDtos.MessageRequest;
+import com.agenticpilot.api.ApiDtos.ApprovalRef;
 import com.agenticpilot.api.ApiDtos.MessageResponse;
+import com.agenticpilot.api.ApiDtos.RunRequest;
+import com.agenticpilot.api.ApiDtos.RunResponse;
+import com.agenticpilot.api.ApiDtos.RunStarted;
+import com.agenticpilot.api.ApiDtos.RunStepDto;
+import com.agenticpilot.run.AgentRun;
+import com.agenticpilot.run.AgentRunRepository;
+import com.agenticpilot.run.AgentRunStepRepository;
+import com.agenticpilot.run.RunLauncher;
+import com.agenticpilot.run.RunRefusedException;
 import com.agenticpilot.common.InvalidInputException;
 import com.agenticpilot.guardrail.Decision;
 import com.agenticpilot.runtime.BackgroundExecutor;
@@ -64,9 +74,15 @@ class ApiControllers {
     private final GuardrailCheckService checks;
     private final PendingActionRepository pendingActions;
     private final BackgroundExecutor executor;
+    private final RunLauncher launcher;
+    private final AgentRunRepository runs;
+    private final AgentRunStepRepository runSteps;
 
     ApiControllers(AgentRepository agents, ChatPipeline pipeline, GuardrailCheckService checks, PendingActionRepository pendingActions,
-                   BackgroundExecutor executor) {
+                   BackgroundExecutor executor, RunLauncher launcher, AgentRunRepository runs, AgentRunStepRepository runSteps) {
+        this.launcher = launcher;
+        this.runs = runs;
+        this.runSteps = runSteps;
         this.agents = agents;
         this.pipeline = pipeline;
         this.checks = checks;
@@ -236,6 +252,54 @@ class ApiControllers {
                 .map(d -> new MatchedRule(d.ruleId(), d.ruleName(), d.outcome().name().toLowerCase(Locale.ROOT))).toList();
         return new CheckResponse(r.requestId(), r.verdict().name().toLowerCase(Locale.ROOT), r.text(), r.message(), matched,
                 r.decisions().stream().map(DecisionDto::of).toList(), r.notes(), ApiDtos.approvalRef(r.pendingActionId()));
+    }
+
+    // ----- runs -----
+
+    @PostMapping("/agents/{agentId}/runs")
+    @Operation(summary = "Start a run of a managed agent",
+            description = "The agent works on the input in a loop until its goal is met or a limit stops it. Answers 202 with a run to poll with `GET /api/v1/runs/{id}`. "
+                    + "Only approved agents run.")
+    @ApiResponse(responseCode = "202", description = "The run was started", content = @Content(schema = @Schema(implementation = RunStarted.class)))
+    @ApiResponse(responseCode = "409", description = "The agent is paused, not approved, or external",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "429", description = "Too many runs are going", content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "503", description = "No model available", content = @Content(schema = @Schema(implementation = ApiError.class)))
+    public ResponseEntity<RunStarted> startRun(@PathVariable UUID agentId, @RequestBody RunRequest body, @AuthenticationPrincipal ApiPrincipal principal) {
+        agent(principal, agentId);
+        if (body == null || body.input() == null) {
+            throw new InvalidInputException("run.error.inputRequired");
+        }
+        try {
+            UUID id = launcher.start(agentId, new RunLauncher.Starter(null, principal.keyId(), "api:" + principal.prefix()), body.input(), false);
+            return ResponseEntity.status(HttpStatus.ACCEPTED).header("X-Request-Id", id.toString()).body(new RunStarted(id, "running", "/api/v1/runs/" + id));
+        } catch (RunRefusedException e) {
+            throw switch (e.code()) {
+                case "external" -> new ApiException(HttpStatus.CONFLICT, "agent_not_managed", "This is an external agent. Use POST /api/v1/guardrails/check.");
+                case "not_approved" -> new ApiException(HttpStatus.CONFLICT, "agent_not_approved", "This agent is not approved yet or has been retired.");
+                case "paused" -> new ApiException(HttpStatus.CONFLICT, "agent_paused", "This agent is paused.");
+                case "eu" -> new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "eu_endpoint_unavailable", "This agent is EU-only, but no EU-approved model endpoint is configured.");
+                case "no_model" -> new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "model_unavailable", "No model connection is configured.");
+                default -> new ApiException(HttpStatus.TOO_MANY_REQUESTS, "too_many_runs", "Too many runs are going. Try again in a moment.");
+            };
+        }
+    }
+
+    @GetMapping("/runs/{runId}")
+    @Operation(summary = "Get a run", description = "Status, result and the steps so far. A key sees only runs of its own agent.")
+    @ApiResponse(responseCode = "200", description = "The run", content = @Content(schema = @Schema(implementation = RunResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Unknown, or it belongs to another agent", content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @Transactional(readOnly = true)
+    public RunResponse run(@PathVariable UUID runId, @AuthenticationPrincipal ApiPrincipal principal) {
+        AgentRun run = runs.findById(runId).filter(r -> r.getAgentId().equals(principal.agentId()))
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "not_found", "No such run."));
+        List<RunStepDto> timeline = runSteps.findByRunIdOrderByOrdinal(runId).stream()
+                .map(s -> new RunStepDto(s.getOrdinal(), s.getType().name().toLowerCase(Locale.ROOT), s.getTool(), s.getArguments(), s.getContent(),
+                        s.getTokensIn(), s.getTokensOut(), s.getDurationMs())).toList();
+        ApprovalRef approval = run.getPendingActionId() == null ? null : ApiDtos.approvalRef(run.getPendingActionId());
+        return new RunResponse(run.getId(), run.getAgentId(), run.getStatus().name().toLowerCase(Locale.ROOT),
+                run.getStopReason() == null ? null : run.getStopReason().name().toLowerCase(Locale.ROOT), run.getResult(), run.getDetail(), run.getInput(),
+                run.getStepCount(), run.getTokensIn() + run.getTokensOut(), run.getStartedAt(), run.getEndedAt(), approval, timeline);
     }
 
     // ----- approvals -----

@@ -95,4 +95,32 @@ public final class ApiDtos {
     static ApprovalRef approvalRef(UUID id) {
         return id == null ? null : new ApprovalRef(id, "pending", "/api/v1/approvals/" + id);
     }
+
+    @Schema(description = "Start a run of a managed agent")
+    public record RunRequest(@Schema(description = "The input the agent works on, for example a customer id. At most 1000 characters.", requiredMode = Schema.RequiredMode.REQUIRED) String input) {
+    }
+
+    @Schema(description = "One thing that happened in a run. Texts are masked and shortened.")
+    public record RunStepDto(int n, @Schema(example = "tool_result") String type, @Schema(nullable = true) String tool,
+                             @Schema(nullable = true) String arguments, @Schema(nullable = true) String content, int tokensIn, int tokensOut, long durationMs) {
+    }
+
+    @Schema(description = "A run of an agent. Poll it until the status is finished.")
+    public record RunResponse(
+            UUID id,
+            UUID agentId,
+            @Schema(description = "running, waiting_for_approval or finished", example = "finished") String status,
+            @Schema(description = "Why it ended: done, cannot_complete, step_limit, time_limit, token_limit, stopped_by_user, refused_too_often, blocked, denied, failed or interrupted",
+                    nullable = true, example = "done") String stopReason,
+            @Schema(description = "The result of the run, or what the agent says when it could not finish", nullable = true) String result,
+            @Schema(nullable = true) String detail,
+            @Schema(description = "The input after the guardrails (masked)", nullable = true) String input,
+            int steps, int tokens, Instant startedAt, @Schema(nullable = true) Instant endedAt,
+            @Schema(description = "Present when the run waits for a person", nullable = true) ApprovalRef approval,
+            List<RunStepDto> timeline) {
+    }
+
+    @Schema(description = "A run that was started")
+    public record RunStarted(UUID id, @Schema(example = "running") String status, @Schema(example = "/api/v1/runs/3f2b...") String url) {
+    }
 }

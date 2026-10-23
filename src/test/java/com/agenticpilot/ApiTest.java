@@ -107,6 +107,66 @@ class ApiTest {
         assertThatThrownBy(() -> agents.retire(draft.getId())).hasMessage("error.agent.hasKeys"); // blocked while a key is active
     }
 
+    @Test
+    void runsAreStartedAndPolledThroughTheApiAndStayWithTheirOwnAgent() throws Exception {
+        Setup s = newAgentWithKey();
+        Setup other = newAgentWithKey();
+        model.script(FakeModel.tool("finish", "{\"status\":\"done\",\"result\":\"Done for customer 4711\"}"));
+        String path = "/api/v1/agents/" + s.agent().getId() + "/runs";
+
+        assertThat(api.post(path, null, "{\"input\":\"4711\"}").status()).isEqualTo(401);
+        assertThat(api.post(path, s.token(), "{\"input\":\" \"}").status()).isEqualTo(400);
+        assertThat(api.post(path, other.token(), "{\"input\":\"4711\"}").status()).isEqualTo(403);
+
+        var started = api.post(path, s.token(), "{\"input\":\"4711\"}");
+        assertThat(started.status()).isEqualTo(202);
+        String runId = started.json().get("id").asString();
+        assertThat(started.json().get("url").asString()).isEqualTo("/api/v1/runs/" + runId);
+
+        tools.jackson.databind.JsonNode run = null;
+        for (int i = 0; i < 100; i++) {
+            run = api.get("/api/v1/runs/" + runId, s.token()).json();
+            if ("finished".equals(run.get("status").asString())) {
+                break;
+            }
+            Thread.sleep(100);
+        }
+        assertThat(run.get("status").asString()).isEqualTo("finished");
+        assertThat(run.get("stopReason").asString()).isEqualTo("done");
+        assertThat(run.get("result").asString()).isEqualTo("Done for customer 4711");
+        assertThat(run.get("input").asString()).isEqualTo("4711");
+        assertThat(run.get("steps").asInt()).isEqualTo(1);
+        assertThat(run.get("timeline").get(run.get("timeline").size() - 1).get("type").asString()).isEqualTo("finish");
+
+        assertThat(api.get("/api/v1/runs/" + runId, other.token()).status()).isEqualTo(404);
+        assertThat(api.get("/api/v1/runs/" + runId, null).status()).isEqualTo(401);
+        assertThat(jdbc.queryForObject("select count(*) from audit_entry where event like 'Run started%' and actor like 'api:%' and agent_id = ?", Integer.class, s.agent().getId())).isEqualTo(1);
+
+        AsUser.owner();
+        agents.setStatus(s.agent().getId(), com.agenticpilot.agent.AgentStatus.PAUSED);
+        var paused = api.post(path, s.token(), "{\"input\":\"4711\"}");
+        assertThat(paused.status()).isEqualTo(409);
+        assertThat(paused.json().get("code").asString()).isEqualTo("agent_paused");
+    }
+
+    @Test
+    void runsOfAgentsThatAreNotApprovedOrAreExternalAreRefused() throws Exception {
+        AsUser.owner();
+        Agent draft = agents.create("DraftRun " + System.nanoTime(), "j", List.of(), List.of());
+        String token = keys.create(draft.getId(), "k").token();
+        var r = api.post("/api/v1/agents/" + draft.getId() + "/runs", token, "{\"input\":\"x\"}");
+        assertThat(r.status()).isEqualTo(409);
+        assertThat(r.json().get("code").asString()).isEqualTo("agent_not_approved");
+
+        Agent external = agents.create("ExtRun " + System.nanoTime(), "j", List.of(), List.of(), com.agenticpilot.agent.AgentKind.EXTERNAL);
+        Approve.agent(agents, external.getId());
+        String extToken = keys.create(external.getId(), "k").token();
+        var e = api.post("/api/v1/agents/" + external.getId() + "/runs", extToken, "{\"input\":\"x\"}");
+        assertThat(e.status()).isEqualTo(409);
+        assertThat(e.json().get("code").asString()).isEqualTo("agent_not_managed");
+        assertThat(api.get("/v3/api-docs", null).body()).contains("/api/v1/agents/{agentId}/runs").contains("/api/v1/runs/{runId}");
+    }
+
     // ----- authentication -----
 
     @Test
